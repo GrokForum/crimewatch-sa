@@ -1,0 +1,9 @@
+{
+  "_comment": "The sha256 pin is bumped only by a reviewed change. A download that does not match this pin must fail closed.",
+  "workbook": {
+    "url": "https://www.saps.gov.za/services/downloads/2026/2026-2027_-_2nd_Quarter_WEB.xlsx",
+    "path": "raw/q2-2026-27/2026-2027_-_2nd_Quarter_WEB.xlsx",
+    "size": 11594577,
+    "sha256": "a1c7a3ae60fd09d59bd6b298a3a6e8237b001f9feadd9fb2815cef763bb0e061"
+  }
+}

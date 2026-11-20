@@ -1,0 +1,21 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Official SAPS workbooks are downloaded at run time, not stored here
+raw/**/*.xlsx
+raw/**/*.xls
+raw/**/*.pdf
+
+# Secrets and local-only files
+.env
+.env.*
+*.pem
+!ci/certs/*.pem
+*.key
+secrets/
+
+# OS
+.DS_Store

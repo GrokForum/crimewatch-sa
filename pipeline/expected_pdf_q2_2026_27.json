@@ -1,0 +1,44 @@
+{
+  "_source": "https://www.saps.gov.za/services/downloads/2026/2026-2027_-_2nd_Quarter_WEB.pdf",
+  "_note": "Values typed from the official PDF, Jul-Sep 2026 vs Jul-Sep 2025. pdf_page = PDF page index (1-based) of the local copy.",
+  "expected_check_count": 48,
+  "national": {
+    "Murder": {"q2_2025": 5794, "q2_2026": 5590, "pdf_page": 134},
+    "Attempted murder": {"q2_2025": 7255, "q2_2026": 7470, "pdf_page": 134},
+    "Sexual offences": {"q2_2025": 12787, "q2_2026": 12444, "pdf_page": 134},
+    "Rape": {"q2_2025": 10154, "q2_2026": 9908, "pdf_page": 134},
+    "Carjacking": {"q2_2025": 4778, "q2_2026": 3977, "pdf_page": 134},
+    "Truck hijacking": {"q2_2025": 420, "q2_2026": 303, "pdf_page": 134},
+    "Robbery of cash in transit": {"q2_2025": 24, "q2_2026": 36, "pdf_page": 134},
+    "Contact crime (Crimes against the person)": {"q2_2025": 155936, "q2_2026": 152281, "pdf_page": 134},
+    "Kidnapping": {"q2_2025": 4772, "q2_2026": 4934, "pdf_page": 82},
+    "17 Community reported serious Crime": {"q2_2025": 361560, "q2_2026": 357531, "pdf_page": 135}
+  },
+  "province_murder_q2_2026": {
+    "_pdf_page": 18,
+    "Eastern Cape": 1068, "Free State": 197, "Gauteng": 1418, "KwaZulu-Natal": 1090, "Limpopo": 160,
+    "Mpumalanga": 242, "North West": 223, "Northern Cape": 83, "Western Cape": 1109
+  },
+  "province_kidnapping_q2_2026": {
+    "_pdf_page": 82,
+    "Eastern Cape": 230, "Free State": 190, "Gauteng": 2600, "KwaZulu-Natal": 918, "Limpopo": 184,
+    "Mpumalanga": 273, "North West": 261, "Northern Cape": 50, "Western Cape": 228
+  },
+  "known_disputed": {
+    "Western Cape": {
+      "category": "Murder",
+      "period": "q2_2026",
+      "provincial_summary": 1109,
+      "xlsx_station_rows_sum": 1113,
+      "age_sex_verified_table_pdf_p19": 1110,
+      "label": "Disputed"
+    },
+    "Eastern Cape": {
+      "category": "Murder",
+      "period": "q2_2026",
+      "provincial_summary": 1068,
+      "xlsx_station_rows_sum": 1064,
+      "label": "Disputed"
+    }
+  }
+}
