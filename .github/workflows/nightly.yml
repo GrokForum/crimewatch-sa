@@ -32,29 +32,20 @@ jobs:
       - name: Install
         run: pip install -r requirements.txt
       - name: Download official SAPS Q2 workbook
-        env:
-          SAPS_XLSX_URL: https://www.saps.gov.za/services/downloads/2026/2026-2027_-_2nd_Quarter_WEB.xlsx
         run: |
-          # SAPS presents a TLS certificate chain that fails verification against
-          # common CA stores (curl ssl_verify_result 20: unable to get local issuer
-          # certificate). Download with -k, then accept the file only if it is a
-          # large Excel workbook (ZIP/PK magic bytes, over 1 MiB).
           mkdir -p raw/q2-2026-27
-          dest="raw/q2-2026-27/2026-2027_-_2nd_Quarter_WEB.xlsx"
-          curl -fsSL -k -o "$dest" "$SAPS_XLSX_URL"
-          python -c '
-          from pathlib import Path
-          p = Path("raw/q2-2026-27/2026-2027_-_2nd_Quarter_WEB.xlsx")
-          data = p.read_bytes()
-          if data[:2] != b"PK":
-              raise SystemExit("downloaded file is not a zip/xlsx")
-          if p.stat().st_size < 1_000_000:
-              raise SystemExit(f"downloaded file too small: {p.stat().st_size}")
-          print(f"workbook ok size={p.stat().st_size}")
-          '
+          url=$(python -c 'import json; print(json.load(open("data/manifest.json"))["workbook"]["url"])')
+          dest=$(python -c 'import json; print(json.load(open("data/manifest.json"))["workbook"]["path"])')
+          mkdir -p "$(dirname "$dest")"
+          # SAPS sends only the leaf certificate. Verify against the reviewed
+          # Sectigo intermediate + root in ci/certs/saps-chain.pem (no curl -k).
+          curl -fsSL --cacert ci/certs/saps-chain.pem -o "$dest" "$url"
+          python pipeline/verify_workbook.py "$dest"
       - name: Build (ingest)
         run: python pipeline/ingest_saps_xlsx.py
       - name: Tests
         run: python -m pytest -q
       - name: Data-quality gate
         run: python pipeline/dq_check.py data/saps_q2_2026_27_long.csv
+      - name: POPIA gate
+        run: python pipeline/popia_gate.py data

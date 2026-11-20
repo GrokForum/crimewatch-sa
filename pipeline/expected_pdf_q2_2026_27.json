@@ -1,6 +1,7 @@
 {
   "_source": "https://www.saps.gov.za/services/downloads/2026/2026-2027_-_2nd_Quarter_WEB.pdf",
   "_note": "Values typed from the official PDF, Jul-Sep 2026 vs Jul-Sep 2025. pdf_page = PDF page index (1-based) of the local copy.",
+  "expected_check_count": 48,
   "national": {
     "Murder": {"q2_2025": 5794, "q2_2026": 5590, "pdf_page": 134},
     "Attempted murder": {"q2_2025": 7255, "q2_2026": 7470, "pdf_page": 134},
@@ -24,10 +25,19 @@
     "Mpumalanga": 273, "North West": 261, "Northern Cape": 50, "Western Cape": 228
   },
   "known_disputed": {
-    "western_cape_murder_q2_2026": {
-      "provincial_summary_pdf_p18_and_xlsx_province_row": 1109,
-      "age_sex_verified_table_pdf_p19": 1110,
+    "Western Cape": {
+      "category": "Murder",
+      "period": "q2_2026",
+      "provincial_summary": 1109,
       "xlsx_station_rows_sum": 1113,
+      "age_sex_verified_table_pdf_p19": 1110,
+      "label": "Disputed"
+    },
+    "Eastern Cape": {
+      "category": "Murder",
+      "period": "q2_2026",
+      "provincial_summary": 1068,
+      "xlsx_station_rows_sum": 1064,
       "label": "Disputed"
     }
   }

@@ -19,18 +19,21 @@ The research pipeline ingests the official SAPS quarterly workbook, writes offic
 ```bash
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
-# Optional: download the official workbook (the SAPS TLS chain often fails CA verification)
+# Optional: download the official workbook, verified against the reviewed CA bundle
 mkdir -p raw/q2-2026-27
-curl -fsSL -k -o raw/q2-2026-27/2026-2027_-_2nd_Quarter_WEB.xlsx \
-  https://www.saps.gov.za/services/downloads/2026/2026-2027_-_2nd_Quarter_WEB.xlsx
+curl -fsSL --cacert ci/certs/saps-chain.pem \
+  -o raw/q2-2026-27/2026-2027_-_2nd_Quarter_WEB.xlsx \
+  "$(python -c 'import json; print(json.load(open("data/manifest.json"))["workbook"]["url"])')"
+.venv/bin/python pipeline/verify_workbook.py
 .venv/bin/python pipeline/ingest_saps_xlsx.py
 .venv/bin/python -m pytest -q
 .venv/bin/python pipeline/dq_check.py
+.venv/bin/python pipeline/popia_gate.py
 ```
 
-Tests also run against the committed official-derived CSVs when the workbook is not present.
+Tests also run against the committed official-derived CSVs when the workbook is not present. The workbook's size and sha256 are pinned in `data/manifest.json`; the pin is bumped only by a reviewed change, and a mismatch fails closed.
 
-A nightly workflow (00:00 UTC, 02:00 SAST) sets up Python, installs pinned dependencies, downloads the workbook, builds, runs pytest and the data-quality gate. It has no deploy, publish or Pages step, and no secrets.
+A nightly workflow (00:00 UTC, 02:00 SAST) sets up Python, installs pinned dependencies, downloads the workbook with `curl --cacert ci/certs/saps-chain.pem`, checks the pin, builds, and runs pytest, the data-quality gate and the POPIA gate. It has no deploy, publish or Pages step, and no secrets.
 
 ## Data
 
