@@ -227,3 +227,132 @@ def test_repo_public_text_has_no_internal_names_or_local_paths():
         assert not sg.PATH_RE.search(text) or path.name in {"site_gate.py"}, rel
         fails = sg.scan_text(rel, text, banned, [])
         assert not any("internal or excluded name" in f for f in fails), rel
+
+
+def test_heat_map_note_mentions_eastern_and_western_cape(site):
+    html = (site / "heat-map" / "index.html").read_text()
+    assert "Eastern Cape 1,068" in html and "1,064" in html
+    assert "Western Cape 1,109" in html
+
+
+def test_privacy_contact_is_present(site):
+    addr = "privacy@" + "grokforum.site"
+    footer_hits = 0
+    for rel in PAGES:
+        html = (site / rel).read_text()
+        assert f"mailto:{addr}" in html
+        footer_hits += 1
+    assert footer_hits == len(PAGES)
+    assert addr in (site / "method" / "index.html").read_text()
+
+
+def test_reviewed_oxpeckers_and_wc_department_are_on_the_register(site):
+    assert "oxpeckers" in C.SOURCES
+    assert C.SOURCES["oxpeckers"][1] == "https://oxpeckers.org/"
+    typ = C.SOURCES["oxpeckers"][2].lower()
+    assert "alleged" in typ and "wildlife" in typ
+    assert "wc_community_safety" in C.SOURCES
+    assert C.SOURCES["wc_community_safety"][1] == "https://www.westerncape.gov.za/community-safety"
+    typ = C.SOURCES["wc_community_safety"][2].lower()
+    assert "saps" in typ
+    method = (site / "method" / "index.html").read_text()
+    assert "https://oxpeckers.org/" in method
+    assert "https://www.westerncape.gov.za/community-safety" in method
+
+
+@pytest.mark.parametrize("snippet", [
+    lambda a: f"<p>{a.replace('@', '&#64;')}</p>",
+    lambda a: f"<p>{a.replace('@', '&#x40;')}</p>",
+    lambda a: f"<p>{a.replace('@', '&commat;')}</p>",
+    lambda a: f"<p>{a.replace('@', '&amp;#64;')}</p>",
+    lambda a: "<p>" + a.split("@")[0] + "[at]" + a.split("@")[1].replace(".", "[dot]") + "</p>",
+])
+def test_gate_catches_encoded_emails(site_copy, snippet):
+    addr = "someone" + "@" + "example.org"
+    _inject(site_copy, "method/index.html", snippet(addr))
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("email pattern" in f for f in fails), fails
+
+
+@pytest.mark.parametrize("wrap", ["template", "textarea", "noscript"])
+def test_gate_ignores_noindex_inside_hidden_markup(site_copy, wrap):
+    p = site_copy / "media-gap" / "index.html"
+    meta = '<meta name="robots" content="noindex, nofollow">'
+    p.write_text(p.read_text().replace(meta, f"<{wrap}>{meta}</{wrap}>"))
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("noindex" in f and "not effective" in f for f in fails), fails
+
+
+def test_gate_ignores_noindex_in_body_only(site_copy):
+    p = site_copy / "media-gap" / "index.html"
+    t = p.read_text().replace('<meta name="robots" content="noindex, nofollow">', "")
+    t = t.replace("<body>", '<body><meta name="robots" content="noindex, nofollow">')
+    p.write_text(t)
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("noindex" in f and "not effective" in f for f in fails), fails
+
+
+def test_gate_flags_tampered_map_data_source_host(site_copy):
+    p = site_copy / "assets" / "map-data.js"
+    d = map_data(site_copy)
+    d["source"] = "https://" + "evil.example" + "/workbook.xlsx"
+    p.write_text("window.CW_DATA = " + json.dumps(d) + ";\n")
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("source URL is not on the reviewed source register" in f for f in fails), fails
+
+
+def test_default_build_stays_noindex(site):
+    for rel in PAGES:
+        assert 'content="noindex, nofollow"' in (site / rel).read_text()
+    assert "Disallow: /" in (site / "robots.txt").read_text()
+    assert "Allow: /" not in (site / "robots.txt").read_text()
+    assert sg.check_site(site, private_names=[], indexable=False) == []
+
+
+def test_indexable_refused_for_other_host(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("CW_INDEXABLE", "1")
+    monkeypatch.setenv("CW_SITE_HOST", "example.com")
+    with pytest.raises(SystemExit) as exc:
+        bs.build(tmp_path / "s")
+    assert "indexing refused" in str(exc.value)
+    assert bs.APPROVED_SITE_HOST in str(exc.value)
+
+
+def test_indexable_refused_without_host(tmp_path, monkeypatch):
+    monkeypatch.setenv("CW_INDEXABLE", "1")
+    monkeypatch.delenv("CW_SITE_HOST", raising=False)
+    with pytest.raises(SystemExit) as exc:
+        bs.build(tmp_path / "s")
+    assert "indexing refused" in str(exc.value)
+
+
+def test_indexable_opt_in_on_approved_host(tmp_path):
+    out = bs.build(tmp_path / "live", indexable=True, host=bs.APPROVED_SITE_HOST)
+    html = (out / "index.html").read_text()
+    assert 'content="index, follow"' in html
+    assert 'content="noindex' not in html
+    assert "<strong>DRAFT.</strong>" in html
+    robots = (out / "robots.txt").read_text()
+    assert "Allow: /" in robots
+    assert "Disallow: /" not in robots
+    default_fails = sg.check_site(out, private_names=[], indexable=False)
+    assert any("noindex" in f or "robots.txt" in f for f in default_fails)
+    assert sg.check_site(out, private_names=[], indexable=True, host=bs.APPROVED_SITE_HOST) == []
+
+
+def test_ci_workflow_does_not_enable_indexing():
+    wf = (ROOT / ".github" / "workflows" / "nightly.yml").read_text()
+    assert "CW_INDEXABLE" not in wf
+    assert "CW_SITE_HOST" not in wf
+
+
+def test_missing_private_names_file_exits_cleanly(site, monkeypatch, capsys):
+    missing = str(Path("does-not-exist") / "private-names.txt")
+    monkeypatch.setenv("CW_PRIVATE_NAMES_FILE", missing)
+    rc = sg.main(["site_gate.py", str(site)])
+    err = capsys.readouterr()
+    text = err.err + err.out
+    assert rc == 1
+    assert "FAIL" in text
+    assert "not found" in text
+    assert "Traceback" not in text

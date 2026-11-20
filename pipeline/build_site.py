@@ -3,13 +3,17 @@
 Usage: python pipeline/build_site.py [outdir]     (default: build/site)
 
 Output is deterministic (no timestamps), has no secrets and no third-party
-requests. Every page carries a robots noindex meta and a visible DRAFT banner
-until the owner gives a GO to publish. Nothing here deploys or publishes.
+requests. By default every page carries a robots noindex meta, a visible DRAFT
+banner, and robots.txt Disallow: /. Indexing is a deploy-time opt-in only:
+CW_INDEXABLE=1 and CW_SITE_HOST=crimewatch.grokforum.site must both be set;
+any other host is refused. The opt-in is never set in CI. Nothing here deploys
+or publishes.
 """
 import hashlib
 import html
 import json
 import math
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -56,9 +60,34 @@ PAGES = [
 CSP = ("default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; "
        "base-uri 'none'; form-action 'none'")
 
+APPROVED_SITE_HOST = "crimewatch.grokforum.site"
+PRIVACY_EMAIL = "privacy@grokforum.site"
+
 
 class ContentError(Exception):
     pass
+
+
+def resolve_indexable(indexable=None, host=None) -> bool:
+    """Return True only for the explicit approved opt-in. Fail closed otherwise."""
+    if indexable is None:
+        raw = os.environ.get("CW_INDEXABLE", "")
+        if raw in ("", "0", "false", "no"):
+            return False
+        if raw != "1":
+            raise SystemExit(
+                f"FAIL CW_INDEXABLE={raw!r} is not accepted (set to 1 to opt in, or leave unset)"
+            )
+        indexable = True
+    if not indexable:
+        return False
+    resolved = os.environ.get("CW_SITE_HOST", "") if host is None else host
+    if resolved != APPROVED_SITE_HOST:
+        raise SystemExit(
+            f"FAIL indexing refused: CW_SITE_HOST must be {APPROVED_SITE_HOST} (got {resolved!r})"
+        )
+    return True
+
 
 
 # ---------------------------------------------------------------- helpers
@@ -85,18 +114,19 @@ def label_tag(label: str) -> str:
     return f'<span class="label label-{slug}" data-label="{e(label)}">{e(label)}</span>'
 
 
-def page(path: str, title: str, body: str, scripts=()) -> str:
+def page(path: str, title: str, body: str, scripts=(), indexable: bool = False) -> str:
     nav = "".join(
         f'<li><a href="{href}"{" aria-current=\"page\"" if href == path else ""}>{e(name)}</a></li>'
         for href, name in PAGES
     )
     script_tags = "".join(f'<script src="{s}" defer></script>' for s in scripts)
+    robots = "index, follow" if indexable else "noindex, nofollow"
     return f"""<!doctype html>
 <html lang="en-ZA">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
+<meta name="robots" content="{robots}">
 <meta http-equiv="Content-Security-Policy" content="{CSP}">
 <meta name="referrer" content="no-referrer">
 <link rel="stylesheet" href="/assets/site.css">
@@ -111,7 +141,8 @@ def page(path: str, title: str, body: str, scripts=()) -> str:
 <main id="main">
 {body}
 </main>
-<footer><p>Fact labels: Proven, Established, Alleged, Disputed, Not established (<a href="{e(C.SOURCES['methodology'][1])}" rel="noopener noreferrer">MediaWatch SA methodology</a>). Code, data and public issues: <a href="{e(C.SOURCES['repo'][1])}" rel="noopener noreferrer">GrokForum/crimewatch-sa</a>. Map boundaries made with Natural Earth.</p></footer>
+<footer><p>Fact labels: Proven, Established, Alleged, Disputed, Not established (<a href="{e(C.SOURCES['methodology'][1])}" rel="noopener noreferrer">MediaWatch SA methodology</a>). Code, data and public issues: <a href="{e(C.SOURCES['repo'][1])}" rel="noopener noreferrer">GrokForum/crimewatch-sa</a>. Map boundaries made with Natural Earth.</p>
+<p>Privacy contact: <a href="mailto:{PRIVACY_EMAIL}">{PRIVACY_EMAIL}</a>.</p></footer>
 </body>
 </html>
 """
@@ -197,7 +228,7 @@ def project_paths(geo):
 
 
 # ---------------------------------------------------------------- pages
-def home_page():
+def home_page(indexable=False):
     cards = []
     for value, lab, detail, flabel, srcs in C.HEADLINES:
         cards.append(f'<div class="metric"><p class="value">{e(value)}</p><p class="mlabel">{e(lab)}</p>'
@@ -214,10 +245,10 @@ def home_page():
 <li><a href="/media-gap/">Media vs official</a>: what the official tables emphasise against what the news emphasised, and misreported statistics.</li>
 <li><a href="/method/">Method and sources</a>: rules, fact labels, privacy, how the work is checked, and the source register.</li>
 </ul>"""
-    return page("/", "Official SAPS Q2 2026/27 figures", body)
+    return page("/", "Official SAPS Q2 2026/27 figures", body, indexable=indexable)
 
 
-def heat_map_page(payload, paths, viewbox):
+def heat_map_page(payload, paths, viewbox, indexable=False):
     options = "".join(
         f'<option value="{e(k)}"{" selected" if k == "murder" else ""}>{e(lab)}{"" if ok else " (no station-level SAPS data)"}</option>'
         for k, lab, ok in LAYERS)
@@ -247,12 +278,12 @@ def heat_map_page(payload, paths, viewbox):
 <noscript><p>The interactive map needs JavaScript. The table below gives the official provincial murder counts.</p></noscript>
 <h2>Murder by province (static table)</h2>
 <table><thead><tr><th>Province</th><th>Jul–Sep 2026</th><th>Jul–Sep 2025</th><th>Per 100,000 (arithmetic)</th></tr></thead><tbody>{''.join(rows)}</tbody></table>
-<p class="note">District figures are the workbook's own police-district rows. In Amathole and City of Cape Town the district row and the sum of its station rows differ (labelled Disputed in the district table); national totals still match. Province totals use the workbook's province rows, so the Western Cape murder figure is 1,109 (see the high-profile page for the three official totals). {label_tag('Disputed')}</p>
+<p class="note">District figures are the workbook's own police-district rows. In Amathole and City of Cape Town the district row and the sum of its station rows differ (labelled Disputed in the district table); national totals still match. Province totals use the workbook's province rows, so the official provincial murder figures are Eastern Cape 1,068 (station rows sum to 1,064) and Western Cape 1,109 (station rows sum to 1,113; an age-and-sex table gives 1,110). See the high-profile page for the Western Cape's three official totals. {label_tag('Disputed')}</p>
 <p class="note">Boundaries: {src_links(['natural_earth'])}. No official police-district boundary map was verified, so districts and stations are listed, not drawn.</p>"""
-    return page("/heat-map/", "Heat map", body, scripts=("/assets/map-data.js", "/assets/map.js"))
+    return page("/heat-map/", "Heat map", body, scripts=("/assets/map-data.js", "/assets/map.js"), indexable=indexable)
 
 
-def high_profile_page():
+def high_profile_page(indexable=False):
     sections = []
     for item in C.HIGH_PROFILE:
         lis = "".join(f"<li>{label_tag(lab)} {e(text)} {src_links(srcs)}</li>" for lab, text, srcs in item["rows"])
@@ -267,10 +298,10 @@ def high_profile_page():
 <p>Detection is SAPS's measure on reported charges; conviction rates are a share of finalised court cases, not of all reported crime. The two conviction series are shown side by side and not averaged. {label_tag('Proven')}</p>
 <table><thead><tr><th>Crime</th><th>Charges reported</th><th>SAPS detection rate (2024/25)</th><th>SAPS-reported conviction rate</th><th>NPA conviction rate</th></tr></thead><tbody>{out_rows}</tbody></table>
 <p>{src_links(C.OUTCOMES_SOURCES)}</p></section>"""
-    return page("/high-profile/", "High-profile crimes", body)
+    return page("/high-profile/", "High-profile crimes", body, indexable=indexable)
 
 
-def media_gap_page():
+def media_gap_page(indexable=False):
     rows = "".join(
         f"<tr><td>{e(t)}</td><td>{e(o)}</td><td>{e(m)}</td><td>{e(d)}</td><td>{src_links(s)}</td></tr>"
         for t, o, m, d, s in C.GAP_ROWS)
@@ -282,10 +313,10 @@ def media_gap_page():
 <h2>Misreported statistic (factual_error)</h2>
 <p>{label_tag(lab)} {e(text)} {src_links(srcs)}</p>
 <ul>{fe}</ul>"""
-    return page("/media-gap/", "Media vs official", body)
+    return page("/media-gap/", "Media vs official", body, indexable=indexable)
 
 
-def method_page():
+def method_page(indexable=False):
     rules = "".join(f"<li>{e(r)}</li>" for r in C.METHOD_RULES)
     popia = "".join(f"<li>{e(r)}</li>" for r in C.METHOD_POPIA)
     checks = "".join(f"<p>{e(r)}</p>" for r in C.CHECKS_TEXT)
@@ -302,28 +333,30 @@ def method_page():
 <h2>Gaps still open</h2><ul>{gaps}</ul>
 <h2>Source register</h2>
 <table><thead><tr><th>Source</th><th>Type</th><th>Link</th></tr></thead><tbody>{reg}</tbody></table>"""
-    return page("/method/", "Method and sources", body)
+    return page("/method/", "Method and sources", body, indexable=indexable)
 
 
-def not_found_page():
-    return page("/404.html", "Not found", '<h1>Page not found</h1><p><a href="/">Back to the home page</a>.</p>')
+def not_found_page(indexable=False):
+    return page("/404.html", "Not found", '<h1>Page not found</h1><p><a href="/">Back to the home page</a>.</p>', indexable=indexable)
 
 
 # ---------------------------------------------------------------- build
-def build(out: Path = DEFAULT_OUT) -> Path:
+def build(out: Path = DEFAULT_OUT, indexable=None, host=None) -> Path:
+    live = resolve_indexable(indexable, host)
     long_df, stations, districts, pop, geo = load_frames()
     payload = map_payload(long_df, stations, districts, pop)
     paths, viewbox = project_paths(geo)
     if out.exists():
         shutil.rmtree(out)
+    robots = "User-agent: *\nAllow: /\n" if live else "User-agent: *\nDisallow: /\n"
     files = {
-        "index.html": home_page(),
-        "heat-map/index.html": heat_map_page(payload, paths, viewbox),
-        "high-profile/index.html": high_profile_page(),
-        "media-gap/index.html": media_gap_page(),
-        "method/index.html": method_page(),
-        "404.html": not_found_page(),
-        "robots.txt": "User-agent: *\nDisallow: /\n",
+        "index.html": home_page(indexable=live),
+        "heat-map/index.html": heat_map_page(payload, paths, viewbox, indexable=live),
+        "high-profile/index.html": high_profile_page(indexable=live),
+        "media-gap/index.html": media_gap_page(indexable=live),
+        "method/index.html": method_page(indexable=live),
+        "404.html": not_found_page(indexable=live),
+        "robots.txt": robots,
         "assets/map-data.js": "window.CW_DATA = " + json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + ";\n",
     }
     for name in ("site.css", "map.js"):

@@ -54,6 +54,16 @@ SOURCES = {
     "methodology": ("MediaWatch SA methodology (docs/METHODOLOGY.md)", "https://github.com/GrokForum/mediawatch-sa/blob/main/docs/METHODOLOGY.md", "Method"),
     "natural_earth": ("Natural Earth admin-1 boundaries, v5.1.2 (public domain)", "https://www.naturalearthdata.com/about/terms-of-use/", "Map data"),
     "repo": ("CrimeWatch SA repository (code, data and issues)", "https://github.com/GrokForum/crimewatch-sa", "Repository"),
+    "oxpeckers": (
+        "Oxpeckers, wildlife and environmental crime investigations (claims only, labelled Alleged; wildlife only. Where a story publishes a primary document, cite that document)",
+        "https://oxpeckers.org/",
+        "Civil society (claims; Alleged; wildlife only)",
+    ),
+    "wc_community_safety": (
+        "Western Cape Department of Police Oversight and Community Safety (official provincial; cite SAPS first for crime counts; commentary is the provincial government's position)",
+        "https://www.westerncape.gov.za/community-safety",
+        "Official (provincial; SAPS cited first for counts)",
+    ),
 }
 
 # ---- Home page headline figures: (value, label text, detail, fact label, [sources]) ----
@@ -219,6 +229,7 @@ METHOD_POPIA = [
     "Incident-level farm-attack lists are not published here; the site uses official counts and civil-society register totals only.",
     "Public officials appear only in their public role.",
     "The focus is on victims and reducing their number, not on naming organised-crime figures.",
+    "A privacy request can be sent to privacy@grokforum.site.",
 ]
 
 CHECKS_TEXT = [
