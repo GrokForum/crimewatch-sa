@@ -1,0 +1,60 @@
+# Nightly build, tests and data-quality gate. No deploy, publish or Pages step.
+# Publishing stays off. This workflow has no secrets and does not push.
+name: nightly
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 02:00 SAST (00:00 UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Download official SAPS Q2 workbook
+        env:
+          SAPS_XLSX_URL: https://www.saps.gov.za/services/downloads/2026/2026-2027_-_2nd_Quarter_WEB.xlsx
+        run: |
+          # SAPS presents a TLS certificate chain that fails verification against
+          # common CA stores (curl ssl_verify_result 20: unable to get local issuer
+          # certificate). Download with -k, then accept the file only if it is a
+          # large Excel workbook (ZIP/PK magic bytes, over 1 MiB).
+          mkdir -p raw/q2-2026-27
+          dest="raw/q2-2026-27/2026-2027_-_2nd_Quarter_WEB.xlsx"
+          curl -fsSL -k -o "$dest" "$SAPS_XLSX_URL"
+          python -c '
+          from pathlib import Path
+          p = Path("raw/q2-2026-27/2026-2027_-_2nd_Quarter_WEB.xlsx")
+          data = p.read_bytes()
+          if data[:2] != b"PK":
+              raise SystemExit("downloaded file is not a zip/xlsx")
+          if p.stat().st_size < 1_000_000:
+              raise SystemExit(f"downloaded file too small: {p.stat().st_size}")
+          print(f"workbook ok size={p.stat().st_size}")
+          '
+      - name: Build (ingest)
+        run: python pipeline/ingest_saps_xlsx.py
+      - name: Tests
+        run: python -m pytest -q
+      - name: Data-quality gate
+        run: python pipeline/dq_check.py data/saps_q2_2026_27_long.csv
