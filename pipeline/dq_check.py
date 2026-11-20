@@ -85,13 +85,94 @@ def classify_disputes(long_df: pd.DataFrame):
     return listed, unexpected, missing, mismatched
 
 
+DISTRICT_LAYERS = ("gbv_sexual_offences", "gbv_rape", "kidnapping", "murder", "attempted_murder", "all_17_serious")
+LAYER_TO_NATIONAL = {
+    "gbv_sexual_offences": "Sexual offences",
+    "gbv_rape": "Rape",
+    "kidnapping": "Kidnapping",
+    "murder": "Murder",
+    "attempted_murder": "Attempted murder",
+    "all_17_serious": "17 Community reported serious Crime",
+}
+
+
+def _key(name) -> str:
+    return " ".join(str(name).split()).casefold()
+
+
+def district_checks(district_df: pd.DataFrame):
+    """District rows must sum to the PDF national totals, one check per layer."""
+    res = []
+    for layer in DISTRICT_LAYERS:
+        exp = EXPECTED["national"][LAYER_TO_NATIONAL[layer]]["q2_2026"]
+        res.append((f"district rows {layer} q2_2026 sum vs PDF national", int(district_df[layer].sum()), exp))
+    return res
+
+
+def district_disputes(district_df: pd.DataFrame, station_df: pd.DataFrame):
+    """Return (listed, unexpected, missing) district-row vs station-sum differences."""
+    known = EXPECTED["known_district_disputed"]
+    actual = {}
+    for layer in DISTRICT_LAYERS:
+        sums = station_df.groupby(station_df["district"].map(_key))[layer].sum()
+        for _, row in district_df.iterrows():
+            got = (int(row[layer]), int(sums.get(_key(row["district"]), 0)))
+            if got[0] != got[1]:
+                actual[f"{row['district']}|{layer}"] = got
+    listed, unexpected = {}, {}
+    for k, v in actual.items():
+        exp = known.get(k)
+        if exp and (exp["district_row"], exp["station_rows_sum"]) == v:
+            listed[k] = v
+        else:
+            unexpected[k] = v
+    missing = {k: (v["district_row"], v["station_rows_sum"]) for k, v in known.items() if k not in actual}
+    return listed, unexpected, missing
+
+
+def run_district_gate(data_dir: Path) -> int:
+    try:
+        dist = pd.read_csv(data_dir / "districts_q2_2026_27_layers.csv")
+        st = pd.read_csv(data_dir / "stations_q2_2026_27_layers.csv")
+    except (FileNotFoundError, ValueError, TypeError) as exc:
+        print(f"FAIL {exc}")
+        return 1
+    fails = 0
+    for name, got, exp in district_checks(dist):
+        ok = got == exp
+        fails += not ok
+        print(("PASS" if ok else "FAIL"), name, got, exp)
+    listed, unexpected, missing = district_disputes(dist, st)
+    for k, (a, b) in sorted(listed.items()):
+        print(f"DISPUTED district {k}: district row {a} vs station rows sum {b}")
+    for k, (a, b) in sorted(unexpected.items()):
+        fails += 1
+        print(f"FAIL unlisted district dispute {k}: district row {a} vs station rows sum {b}")
+    for k, (a, b) in sorted(missing.items()):
+        fails += 1
+        print(f"FAIL listed district dispute not observed {k}: expected {a} vs {b}")
+    return fails
+
+
 def main(path):
     try:
         df = pd.read_csv(path)
         df = _prepared(df)
-    except (UnknownProvinceError, FileNotFoundError, ValueError) as exc:
+    except (UnknownProvinceError, FileNotFoundError, ValueError, TypeError, KeyError) as exc:
         print(f"FAIL {exc}")
         return 1
+    try:
+        fails = _evaluate(df, path)
+    except (TypeError, ValueError, KeyError) as exc:
+        # Malformed values (e.g. text in a count column) fail the gate clearly
+        # instead of crashing with a traceback.
+        print(f"FAIL malformed data: {type(exc).__name__}: {exc}")
+        return 1
+    print("fails:", fails)
+    return 1 if fails else 0
+
+
+def _evaluate(df, path) -> int:
     fails = 0
     for name, got, exp in checks(df):
         ok = got == exp
@@ -109,8 +190,10 @@ def main(path):
     for p, info in mismatched.items():
         fails += 1
         print(f"FAIL listed dispute values changed {p} murder: got {info['got']} expected {info['expected']}")
-    print("fails:", fails)
-    return 1 if fails else 0
+    district_dir = Path(path).resolve().parent
+    if (district_dir / "districts_q2_2026_27_layers.csv").is_file():
+        fails += run_district_gate(district_dir)
+    return fails
 
 
 if __name__ == "__main__":

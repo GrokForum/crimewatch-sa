@@ -72,15 +72,56 @@ ALLOWLIST = {
         "source_url",
         "note",
     ),
+    "districts_q2_2026_27_layers.csv": (
+        "district",
+        "province",
+        "gbv_sexual_offences",
+        "gbv_sexual_offences_q2_2025",
+        "gbv_rape",
+        "gbv_rape_q2_2025",
+        "gangs",
+        "kidnapping",
+        "kidnapping_q2_2025",
+        "political",
+        "farm",
+        "murder",
+        "murder_q2_2025",
+        "attempted_murder",
+        "attempted_murder_q2_2025",
+        "all_17_serious",
+        "all_17_serious_q2_2025",
+        "period",
+        "source_url",
+    ),
+    "province_population_saps_2021series.csv": (
+        "province",
+        "population",
+        "source_url",
+        "source_note",
+    ),
 }
+
+PINNED_POP_URL = "https://www.saps.gov.za/services/downloads/2026/2026-2027_-_2nd_Quarter_WEB.pdf"
+PINNED_POP_NOTE = "SAPS Q2 2026/27 pack slide 21 (mid-year population estimates 2021 series)"
 
 PINNED = {
     "stations_q2_2026_27_layers.csv": {
         "period": PINNED_PERIOD,
         "source_url": PINNED_SOURCE_URL,
         "note": PINNED_NOTE,
-    }
+    },
+    "districts_q2_2026_27_layers.csv": {
+        "period": PINNED_PERIOD,
+        "source_url": PINNED_SOURCE_URL,
+    },
+    "province_population_saps_2021series.csv": {
+        "source_url": PINNED_POP_URL,
+        "source_note": PINNED_POP_NOTE,
+    },
 }
+
+# Boundary files may carry only the official province name per feature.
+GEO_PROPERTIES = {"province"}
 
 
 class PopiaError(Exception):
@@ -129,6 +170,19 @@ def check_file(path: Path) -> list:
     return failures
 
 
+def check_geojson(path: Path) -> list:
+    try:
+        doc = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        return [f"{path.name}: unreadable boundary file ({exc})"]
+    failures = []
+    for i, feat in enumerate(doc.get("features", [])):
+        extra = set(feat.get("properties", {})) - GEO_PROPERTIES
+        if extra:
+            failures.append(f"{path.name}:feature {i}: properties not on the allowlist: {sorted(extra)}")
+    return failures
+
+
 def check_tree(data_dir: Path = DATA_DIR) -> list:
     failures = []
     csvs = sorted(data_dir.rglob("*.csv"))
@@ -136,6 +190,8 @@ def check_tree(data_dir: Path = DATA_DIR) -> list:
         return [f"no CSV files under {data_dir}"]
     for path in csvs:
         failures.extend(check_file(path))
+    for path in sorted(data_dir.rglob("*.geojson")):
+        failures.extend(check_geojson(path))
     return failures
 
 

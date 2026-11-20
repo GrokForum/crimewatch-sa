@@ -3,26 +3,80 @@
   "_note": "Values typed from the official PDF, Jul-Sep 2026 vs Jul-Sep 2025. pdf_page = PDF page index (1-based) of the local copy.",
   "expected_check_count": 48,
   "national": {
-    "Murder": {"q2_2025": 5794, "q2_2026": 5590, "pdf_page": 134},
-    "Attempted murder": {"q2_2025": 7255, "q2_2026": 7470, "pdf_page": 134},
-    "Sexual offences": {"q2_2025": 12787, "q2_2026": 12444, "pdf_page": 134},
-    "Rape": {"q2_2025": 10154, "q2_2026": 9908, "pdf_page": 134},
-    "Carjacking": {"q2_2025": 4778, "q2_2026": 3977, "pdf_page": 134},
-    "Truck hijacking": {"q2_2025": 420, "q2_2026": 303, "pdf_page": 134},
-    "Robbery of cash in transit": {"q2_2025": 24, "q2_2026": 36, "pdf_page": 134},
-    "Contact crime (Crimes against the person)": {"q2_2025": 155936, "q2_2026": 152281, "pdf_page": 134},
-    "Kidnapping": {"q2_2025": 4772, "q2_2026": 4934, "pdf_page": 82},
-    "17 Community reported serious Crime": {"q2_2025": 361560, "q2_2026": 357531, "pdf_page": 135}
+    "Murder": {
+      "q2_2025": 5794,
+      "q2_2026": 5590,
+      "pdf_page": 134
+    },
+    "Attempted murder": {
+      "q2_2025": 7255,
+      "q2_2026": 7470,
+      "pdf_page": 134
+    },
+    "Sexual offences": {
+      "q2_2025": 12787,
+      "q2_2026": 12444,
+      "pdf_page": 134
+    },
+    "Rape": {
+      "q2_2025": 10154,
+      "q2_2026": 9908,
+      "pdf_page": 134
+    },
+    "Carjacking": {
+      "q2_2025": 4778,
+      "q2_2026": 3977,
+      "pdf_page": 134
+    },
+    "Truck hijacking": {
+      "q2_2025": 420,
+      "q2_2026": 303,
+      "pdf_page": 134
+    },
+    "Robbery of cash in transit": {
+      "q2_2025": 24,
+      "q2_2026": 36,
+      "pdf_page": 134
+    },
+    "Contact crime (Crimes against the person)": {
+      "q2_2025": 155936,
+      "q2_2026": 152281,
+      "pdf_page": 134
+    },
+    "Kidnapping": {
+      "q2_2025": 4772,
+      "q2_2026": 4934,
+      "pdf_page": 82
+    },
+    "17 Community reported serious Crime": {
+      "q2_2025": 361560,
+      "q2_2026": 357531,
+      "pdf_page": 135
+    }
   },
   "province_murder_q2_2026": {
     "_pdf_page": 18,
-    "Eastern Cape": 1068, "Free State": 197, "Gauteng": 1418, "KwaZulu-Natal": 1090, "Limpopo": 160,
-    "Mpumalanga": 242, "North West": 223, "Northern Cape": 83, "Western Cape": 1109
+    "Eastern Cape": 1068,
+    "Free State": 197,
+    "Gauteng": 1418,
+    "KwaZulu-Natal": 1090,
+    "Limpopo": 160,
+    "Mpumalanga": 242,
+    "North West": 223,
+    "Northern Cape": 83,
+    "Western Cape": 1109
   },
   "province_kidnapping_q2_2026": {
     "_pdf_page": 82,
-    "Eastern Cape": 230, "Free State": 190, "Gauteng": 2600, "KwaZulu-Natal": 918, "Limpopo": 184,
-    "Mpumalanga": 273, "North West": 261, "Northern Cape": 50, "Western Cape": 228
+    "Eastern Cape": 230,
+    "Free State": 190,
+    "Gauteng": 2600,
+    "KwaZulu-Natal": 918,
+    "Limpopo": 184,
+    "Mpumalanga": 273,
+    "North West": 261,
+    "Northern Cape": 50,
+    "Western Cape": 228
   },
   "known_disputed": {
     "Western Cape": {
@@ -40,5 +94,64 @@
       "xlsx_station_rows_sum": 1064,
       "label": "Disputed"
     }
-  }
+  },
+  "known_district_disputed": {
+    "Amathole District|gbv_sexual_offences": {
+      "district": "Amathole District",
+      "layer": "gbv_sexual_offences",
+      "district_row": 265,
+      "station_rows_sum": 257,
+      "label": "Disputed"
+    },
+    "Amathole District|gbv_rape": {
+      "district": "Amathole District",
+      "layer": "gbv_rape",
+      "district_row": 202,
+      "station_rows_sum": 196,
+      "label": "Disputed"
+    },
+    "Amathole District|murder": {
+      "district": "Amathole District",
+      "layer": "murder",
+      "district_row": 160,
+      "station_rows_sum": 156,
+      "label": "Disputed"
+    },
+    "Amathole District|all_17_serious": {
+      "district": "Amathole District",
+      "layer": "all_17_serious",
+      "district_row": 4540,
+      "station_rows_sum": 4495,
+      "label": "Disputed"
+    },
+    "City of Cape Town District|gbv_sexual_offences": {
+      "district": "City of Cape Town District",
+      "layer": "gbv_sexual_offences",
+      "district_row": 991,
+      "station_rows_sum": 999,
+      "label": "Disputed"
+    },
+    "City of Cape Town District|gbv_rape": {
+      "district": "City of Cape Town District",
+      "layer": "gbv_rape",
+      "district_row": 731,
+      "station_rows_sum": 737,
+      "label": "Disputed"
+    },
+    "City of Cape Town District|murder": {
+      "district": "City of Cape Town District",
+      "layer": "murder",
+      "district_row": 908,
+      "station_rows_sum": 912,
+      "label": "Disputed"
+    },
+    "City of Cape Town District|all_17_serious": {
+      "district": "City of Cape Town District",
+      "layer": "all_17_serious",
+      "district_row": 43233,
+      "station_rows_sum": 43278,
+      "label": "Disputed"
+    }
+  },
+  "_district_note": "District rows (Comp level District, RAW Data sheet) vs the sum of that district's station rows. Amathole and City of Cape Town differ in opposite directions, matching the Eastern Cape and Western Cape murder disputes; national totals still match."
 }
