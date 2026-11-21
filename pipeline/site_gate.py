@@ -63,8 +63,10 @@ class GateError(Exception):
     pass
 
 
-# Invisible / format characters that can hide an "@" (zero-width and soft hyphen).
-INVISIBLE_RE = re.compile("[​‌‍⁠﻿­]")
+# Format characters (Unicode category Cf), plus two that may not be Cf in
+# every Unicode version: U+034F (combining grapheme joiner, usually Mn) and
+# U+180E (Mongolian vowel separator).
+_STRIP_ALWAYS = frozenset("͏᠎")
 UNESCAPE_CAP = 8
 
 
@@ -83,7 +85,7 @@ def decode_obfuscation(text: str) -> str:
             raise GateError(
                 f"HTML entities still changing after {UNESCAPE_CAP} unescape passes"
             )
-    t = INVISIBLE_RE.sub("", t)
+    t = "".join(ch for ch in t if ch not in _STRIP_ALWAYS and unicodedata.category(ch) != "Cf")
 
     def unq(m):
         return "mailto:" + unquote(unquote(m.group(1)))
