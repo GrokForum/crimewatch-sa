@@ -396,3 +396,23 @@ def test_gate_catches_zero_width_around_at(site_copy, left, right):
     _inject(site_copy, "method/index.html", "<p>" + local + left + "@" + right + domain + "</p>")
     fails = sg.check_site(site_copy, private_names=[])
     assert any("email pattern" in f for f in fails), fails
+
+
+def test_gate_catches_format_and_joiner_chars_around_at(site_copy):
+    local, domain = "someone", "example.org"
+    hidden = (
+        local
+        + "\u180e"
+        + "\u2061"
+        + "\u2062"
+        + "\u2063"
+        + "\u2064"
+        + "@"
+        + "\u200e"
+        + "\u2066"
+        + "\u034f"
+        + domain
+    )
+    _inject(site_copy, "method/index.html", "<p>" + hidden + "</p>")
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("email pattern" in f for f in fails), fails
