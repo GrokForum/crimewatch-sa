@@ -12,12 +12,31 @@ ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = ROOT / "data" / "manifest.json"
 
 
+REQUIRED_KEYS = ("url", "path", "size", "sha256")
+
+
 def load_manifest(path=MANIFEST_PATH):
-    return json.loads(Path(path).read_text())
+    """Read the reviewed manifest, or exit 1 with a plain message if it is unusable."""
+    try:
+        manifest = json.loads(Path(path).read_text())
+    except FileNotFoundError:
+        raise SystemExit(f"FAIL manifest not found: {path}")
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"FAIL manifest is not valid JSON ({path}): {exc}")
+    meta = manifest.get("workbook") if isinstance(manifest, dict) else None
+    if not isinstance(meta, dict):
+        raise SystemExit(f"FAIL manifest has no 'workbook' entry: {path}")
+    missing = [k for k in REQUIRED_KEYS if k not in meta]
+    if missing:
+        raise SystemExit(f"FAIL manifest 'workbook' entry is missing {missing}: {path}")
+    if not isinstance(meta["size"], int) or not isinstance(meta["sha256"], str) or len(meta["sha256"]) != 64:
+        raise SystemExit(f"FAIL manifest 'workbook' size/sha256 malformed: {path}")
+    return manifest
 
 
 def verify(workbook: Path, manifest=None) -> None:
     meta = (manifest or load_manifest())["workbook"]
+    workbook = Path(workbook)
     if not workbook.is_file():
         raise SystemExit(f"FAIL missing workbook: {workbook}")
     data = workbook.read_bytes()

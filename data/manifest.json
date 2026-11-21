@@ -5,5 +5,40 @@
     "path": "raw/q2-2026-27/2026-2027_-_2nd_Quarter_WEB.xlsx",
     "size": 11594577,
     "sha256": "a1c7a3ae60fd09d59bd6b298a3a6e8237b001f9feadd9fb2815cef763bb0e061"
+  },
+  "provinces_geo_source": {
+    "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_10m_admin_1_states_provinces.geojson",
+    "licence": "Public domain (Natural Earth terms of use)",
+    "size": 40726851,
+    "sha256": "22d0e3ad85eb3e27f17cabf8ba2d50e554fbc27a87796ff891d958185da62fb5",
+    "derived_note": "data/geo/za_provinces.geojson: 9 provinces, mainland only, coordinates rounded to 3 decimals (tools/extract_provinces.py)"
+  },
+  "raw_data_sheet": {
+    "workbook_sheet": "RAW Data",
+    "stations": 1174,
+    "districts": 55,
+    "categories": 44
+  },
+  "derived": {
+    "data/saps_q2_2026_27_long.csv": {
+      "sha256": "3d5573236cc413f36f615b34840b2cc3af47be25faedae9cdfd6a3b6eaaf031e",
+      "size": 4569329
+    },
+    "data/stations_q2_2026_27_layers.csv": {
+      "sha256": "092ba47ca358f7b7d51702fde663a13ac5a08188724cd206888c63c48870db33",
+      "size": 396568
+    },
+    "data/districts_q2_2026_27_layers.csv": {
+      "sha256": "6b8ae2e5650747525d5ca85c4d69f3a90277ae4f7e460248aff3e860574ce626",
+      "size": 9832
+    },
+    "data/province_population_saps_2021series.csv": {
+      "sha256": "180467c329de10f4734ee52f31e22c705c2a310c035d81c1281faa103175d7e6",
+      "size": 1606
+    },
+    "data/geo/za_provinces.geojson": {
+      "sha256": "3347dd2d8c6ccd81e2ccfbbeb27420d283a342bb1c4a6c98feb4bc4e13e588fc",
+      "size": 104902
+    }
   }
 }
