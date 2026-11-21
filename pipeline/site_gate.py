@@ -63,10 +63,20 @@ class GateError(Exception):
     pass
 
 
+# Invisible / format characters that can hide an "@" (zero-width and soft hyphen).
+INVISIBLE_RE = re.compile("[​‌‍⁠﻿­]")
+UNESCAPE_CAP = 8
+
+
 def decode_obfuscation(text: str) -> str:
     """Turn HTML-entity, nested-entity, mailto percent-encoding and [at]/[dot] forms into plain text."""
     t = unicodedata.normalize("NFKC", text)
-    t = html_lib.unescape(html_lib.unescape(t))
+    for _ in range(UNESCAPE_CAP):
+        nxt = html_lib.unescape(t)
+        if nxt == t:
+            break
+        t = nxt
+    t = INVISIBLE_RE.sub("", t)
 
     def unq(m):
         return "mailto:" + unquote(unquote(m.group(1)))

@@ -265,6 +265,8 @@ def test_reviewed_oxpeckers_and_wc_department_are_on_the_register(site):
     lambda a: f"<p>{a.replace('@', '&#x40;')}</p>",
     lambda a: f"<p>{a.replace('@', '&commat;')}</p>",
     lambda a: f"<p>{a.replace('@', '&amp;#64;')}</p>",
+    lambda a: f"<p>{a.replace('@', '&amp;amp;#64;')}</p>",
+    lambda a: f"<p>{a.replace('@', '&amp;amp;amp;#64;')}</p>",
     lambda a: "<p>" + a.split("@")[0] + "[at]" + a.split("@")[1].replace(".", "[dot]") + "</p>",
 ])
 def test_gate_catches_encoded_emails(site_copy, snippet):
@@ -356,3 +358,17 @@ def test_missing_private_names_file_exits_cleanly(site, monkeypatch, capsys):
     assert "FAIL" in text
     assert "not found" in text
     assert "Traceback" not in text
+
+
+@pytest.mark.parametrize("left, right", [
+    ("\u200b", ""),
+    ("", "\u200c"),
+    ("\u200d", "\u2060"),
+    ("\ufeff", ""),
+    ("\u00ad", "\u200b"),
+])
+def test_gate_catches_zero_width_around_at(site_copy, left, right):
+    local, domain = "someone", "example.org"
+    _inject(site_copy, "method/index.html", "<p>" + local + left + "@" + right + domain + "</p>")
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("email pattern" in f for f in fails), fails
