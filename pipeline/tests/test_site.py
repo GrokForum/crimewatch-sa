@@ -276,6 +276,30 @@ def test_gate_catches_encoded_emails(site_copy, snippet):
     assert any("email pattern" in f for f in fails), fails
 
 
+def _amp_nested_at(depth: int) -> str:
+    """An '@' hidden behind `depth` HTML-entity unescapes (depth 1 is &#64;)."""
+    return "&" + "amp;" * (depth - 1) + "#64;"
+
+
+def test_gate_handles_stable_8_deep_entity_nest(site_copy):
+    addr_left, addr_right = "someone", "example.org"
+    _inject(site_copy, "method/index.html", "<p>" + addr_left + _amp_nested_at(8) + addr_right + "</p>")
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("email pattern" in f for f in fails), fails
+    assert not any("still changing" in f for f in fails), fails
+
+
+def test_gate_fails_closed_on_9_deep_entity_nest(site_copy):
+    addr_left, addr_right = "someone", "example.org"
+    _inject(site_copy, "method/index.html", "<p>" + addr_left + _amp_nested_at(9) + addr_right + "</p>")
+    try:
+        fails = sg.check_site(site_copy, private_names=[])
+    except sg.GateError as exc:
+        assert "still changing" in str(exc) and "8" in str(exc)
+        return
+    assert any("still changing" in f for f in fails), fails
+
+
 @pytest.mark.parametrize("wrap", ["template", "textarea", "noscript"])
 def test_gate_ignores_noindex_inside_hidden_markup(site_copy, wrap):
     p = site_copy / "media-gap" / "index.html"

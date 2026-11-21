@@ -76,6 +76,13 @@ def decode_obfuscation(text: str) -> str:
         if nxt == t:
             break
         t = nxt
+    else:
+        # Still changing after the cap: fail closed rather than silently
+        # leaving a deeper nest (e.g. 9-deep) only partly decoded.
+        if html_lib.unescape(t) != t:
+            raise GateError(
+                f"HTML entities still changing after {UNESCAPE_CAP} unescape passes"
+            )
     t = INVISIBLE_RE.sub("", t)
 
     def unq(m):
