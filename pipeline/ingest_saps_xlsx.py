@@ -10,6 +10,7 @@ reviewed change).
 Outputs:
   saps_q2_2026_27_long.csv       one row per comp level x area x crime category
   stations_q2_2026_27_layers.csv one row per station, menu-layer columns
+  districts_q2_2026_27_layers.csv one row per police district (official District rows)
 
 Count columns (q2_2025, q2_2026) must be numeric. A blank or non-numeric cell
 in those official columns is a hard failure (exit 1). It is not filled with 0.
@@ -117,6 +118,46 @@ def station_layers(df: pd.DataFrame) -> pd.DataFrame:
     return base.sort_values(["province", "district", "station"]).reset_index(drop=True)
 
 
+def _district_key(name) -> str:
+    """Official district names differ only in letter case between row types."""
+    return " ".join(str(name).split()).casefold()
+
+
+def district_layers(df: pd.DataFrame) -> pd.DataFrame:
+    """One row per police district from the workbook's own District rows.
+
+    Province comes from the station rows of that district (each district sits in
+    exactly one province). Values are the official District-row counts, not sums
+    of station rows; dq_check compares the two.
+    """
+    st = df[df["level"] == "Station"]
+    dist = df[df["level"] == "District"].copy()
+    prov_of = (st.assign(key=st["District"].map(_district_key))[["key", "Province"]]
+               .drop_duplicates())
+    if prov_of["key"].duplicated().any():
+        raise IngestError("a police district maps to more than one province")
+    names = (st.assign(key=st["District"].map(_district_key))[["key", "District"]]
+             .drop_duplicates("key"))
+    dist["key"] = dist["area"].map(_district_key)
+    unknown = sorted(set(dist["key"]) - set(prov_of["key"]))
+    if unknown:
+        raise IngestError(f"district rows with no stations: {unknown}")
+    base = names.merge(prov_of, on="key").rename(columns={"District": "district", "Province": "province"})
+    for layer, cat in LAYERS.items():
+        if cat is None:
+            base[layer] = pd.NA
+            continue
+        sub = dist[dist["category"] == cat][["key", "q2_2026", "q2_2025"]].rename(
+            columns={"q2_2026": layer, "q2_2025": f"{layer}_q2_2025"})
+        if sub["key"].duplicated().any():
+            raise IngestError(f"duplicate district rows for {cat}")
+        base = base.merge(sub, on="key", how="left")
+    base = base.drop(columns="key")
+    base["period"] = "Jul-Sep 2026"
+    base["source_url"] = SOURCE_URL
+    return base.sort_values(["province", "district"]).reset_index(drop=True)
+
+
 def main(argv):
     xlsx = Path(argv[1]) if len(argv) > 1 else DEFAULT_XLSX
     out = Path(argv[2]) if len(argv) > 2 else DEFAULT_OUT
@@ -126,6 +167,8 @@ def main(argv):
         df.to_csv(out / "saps_q2_2026_27_long.csv", index=False)
         lay = station_layers(df)
         lay.to_csv(out / "stations_q2_2026_27_layers.csv", index=False)
+        dl = district_layers(df)
+        dl.to_csv(out / "districts_q2_2026_27_layers.csv", index=False)
     except IngestError as exc:
         print(f"FAIL ingest: {exc}", file=sys.stderr)
         return 1

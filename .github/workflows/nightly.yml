@@ -1,5 +1,6 @@
-# Nightly build, tests and data-quality gate. No deploy, publish or Pages step.
-# Publishing stays off. This workflow has no secrets and does not push.
+# Nightly build, tests, data-quality and POPIA gates, and a static-site build.
+# No deploy, publish or Pages step: the generated site stays on the runner.
+# This workflow has no secrets and does not push.
 name: nightly
 
 on:
@@ -32,20 +33,26 @@ jobs:
       - name: Install
         run: pip install -r requirements.txt
       - name: Download official SAPS Q2 workbook
+        # SAPS sends only the leaf certificate; the collector verifies against the
+        # reviewed Sectigo chain in ci/certs/saps-chain.pem. A certificate/TLS
+        # error prints an ::error annotation and a FAIL line on stderr, appends
+        # to logs/collector.log and fails this step (exit 2). Never silent.
+        run: python pipeline/fetch_official.py workbook
+      - name: Show collector log on failure
+        if: failure()
         run: |
-          mkdir -p raw/q2-2026-27
-          url=$(python -c 'import json; print(json.load(open("data/manifest.json"))["workbook"]["url"])')
-          dest=$(python -c 'import json; print(json.load(open("data/manifest.json"))["workbook"]["path"])')
-          mkdir -p "$(dirname "$dest")"
-          # SAPS sends only the leaf certificate. Verify against the reviewed
-          # Sectigo intermediate + root in ci/certs/saps-chain.pem (no curl -k).
-          curl -fsSL --cacert ci/certs/saps-chain.pem -o "$dest" "$url"
-          python pipeline/verify_workbook.py "$dest"
+          if [ -f logs/collector.log ]; then cat logs/collector.log >&2; fi
       - name: Build (ingest)
         run: python pipeline/ingest_saps_xlsx.py
+      - name: Derived files match their manifest pins
+        run: git diff --exit-code -- data/
       - name: Tests
         run: python -m pytest -q
       - name: Data-quality gate
         run: python pipeline/dq_check.py data/saps_q2_2026_27_long.csv
-      - name: POPIA gate
+      - name: POPIA gate (data)
         run: python pipeline/popia_gate.py data
+      - name: Build static site
+        run: python pipeline/build_site.py build/site
+      - name: POPIA and hygiene gate (generated site)
+        run: python pipeline/site_gate.py build/site
