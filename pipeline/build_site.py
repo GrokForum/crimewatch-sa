@@ -21,6 +21,7 @@ from pathlib import Path
 import pandas as pd
 
 import site_content as C
+import sweeps
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
@@ -54,6 +55,7 @@ PAGES = [
     ("/heat-map/", "Heat map"),
     ("/high-profile/", "High-profile crimes"),
     ("/media-gap/", "Media vs official"),
+    ("/daily-sweeps/", "Daily sweeps"),
     ("/method/", "Method and sources"),
 ]
 
@@ -142,7 +144,8 @@ def page(path: str, title: str, body: str, scripts=(), indexable: bool = False) 
 {body}
 </main>
 <footer><p>Fact labels: Proven, Established, Alleged, Disputed, Not established (<a href="{e(C.SOURCES['methodology'][1])}" rel="noopener noreferrer">MediaWatch SA methodology</a>). Code, data and public issues: <a href="{e(C.SOURCES['repo'][1])}" rel="noopener noreferrer">GrokForum/crimewatch-sa</a>. Map boundaries made with Natural Earth.</p>
-<p>Privacy contact: <a href="mailto:{PRIVACY_EMAIL}">{PRIVACY_EMAIL}</a>.</p></footer>
+<p>Privacy contact: <a href="mailto:{PRIVACY_EMAIL}">{PRIVACY_EMAIL}</a>.</p>
+<p class="disclaimer">We are not responsible for anything published by anyone else, including personal information.</p></footer>
 </body>
 </html>
 """
@@ -243,6 +246,7 @@ def home_page(indexable=False):
 <li><a href="/heat-map/">Heat map</a>: zoom from South Africa to a province, its police districts and stations, by crime type.</li>
 <li><a href="/high-profile/">High-profile crimes</a>: murder, rape, GBV, kidnapping, gang violence, farm and rural violence, political killings and wildlife crime.</li>
 <li><a href="/media-gap/">Media vs official</a>: what the official tables emphasise against what the news emphasised, and misreported statistics.</li>
+<li><a href="/daily-sweeps/">Daily sweeps</a>: pick a day, or search official, police and media handles, in the daily editions.</li>
 <li><a href="/method/">Method and sources</a>: rules, fact labels, privacy, how the work is checked, and the source register.</li>
 </ul>"""
     return page("/", "Official SAPS Q2 2026/27 figures", body, indexable=indexable)
@@ -336,6 +340,65 @@ def method_page(indexable=False):
     return page("/method/", "Method and sources", body, indexable=indexable)
 
 
+
+def _sweep_item_html(item: dict) -> str:
+    handles = item.get("handles") or []
+    handle_bits = ", ".join(e(h.get("display") or f"@{h['handle']}") for h in handles)
+    handle_p = f'<p class="sweep-handles">Handles: {handle_bits}</p>' if handle_bits else ""
+    place = f'<p class="note">{e(item["place"])}</p>' if item.get("place") else ""
+    lab = label_tag(item["label"]) if item.get("label") else ""
+    sources = "".join(
+        f'<li><a href="{e(s["url"])}" rel="noopener noreferrer">{e(s["title"])}</a></li>'
+        for s in item["sources"]
+    )
+    return (
+        f'<article class="sweep-item" data-id="{e(item["id"])}">'
+        f'<h3>{e(item["title"])}</h3>{place}{lab}'
+        f'<p>{e(item["summary"])}</p>{handle_p}'
+        f'<p class="src">Source:</p><ul class="sweep-sources">{sources}</ul>'
+        f"</article>"
+    )
+
+
+def _sweep_day_html(day: dict) -> str:
+    items = "".join(_sweep_item_html(item) for item in day["items"])
+    if not day["items"]:
+        items = '<p class="note">No cited items in this edition.</p>'
+    compiled = f' ({e(day["compiled_sast"])})' if day.get("compiled_sast") else ""
+    return (
+        f'<section class="sweep-day" aria-labelledby="sweep-day-{e(day["date"])}">'
+        f'<h2 id="sweep-day-{e(day["date"])}">{e(day["date"])}{compiled}</h2>'
+        f'<p class="lede">{e(day["summary"])}</p>{items}</section>'
+    )
+
+
+def daily_sweeps_page(catalog, indexable=False):
+    days_html = "".join(_sweep_day_html(day) for day in catalog["days"])
+    body = f"""<h1>Daily sweeps</h1>
+<p class="lede">Official, media and civil-society items from each CrimeWatch daily sweep, with a fetched source on every fact. Pick a day, or search by a public official, police or media handle.</p>
+<p class="disclaimer">{e(sweeps.DISCLAIMER)}</p>
+<p>On this page, private people are masked or described anonymously, for example “a farmer and his wife”. Public figures, officials, police and media accounts can be named. We may link to an external page that itself names someone; that exposure is the publisher’s. We only report, mask and reference.</p>
+<div class="sweep-tools">
+<div class="field"><label for="sweep-day">Day</label>
+<select id="sweep-day"></select></div>
+<div class="field" role="search" aria-labelledby="sweep-search-label">
+<label id="sweep-search-label" for="sweep-handle">Search sweeps by handle</label>
+<input id="sweep-handle" type="search" list="sweep-handles" autocomplete="off" spellcheck="false">
+<datalist id="sweep-handles"></datalist>
+</div>
+</div>
+<p id="sweep-status" aria-live="polite"></p>
+<div id="sweep-results">{days_html}</div>
+<noscript><p class="note">The editions are listed above in date order. The day menu and handle search need JavaScript, which runs only from this site.</p></noscript>"""
+    return page(
+        "/daily-sweeps/",
+        "Daily sweeps",
+        body,
+        scripts=("/assets/sweeps-data.js", "/assets/sweeps.js"),
+        indexable=indexable,
+    )
+
+
 def not_found_page(indexable=False):
     return page("/404.html", "Not found", '<h1>Page not found</h1><p><a href="/">Back to the home page</a>.</p>', indexable=indexable)
 
@@ -343,6 +406,8 @@ def not_found_page(indexable=False):
 # ---------------------------------------------------------------- build
 def build(out: Path = DEFAULT_OUT, indexable=None, host=None) -> Path:
     live = resolve_indexable(indexable, host)
+    catalog = sweeps.load()
+    sweep_payload = sweeps.payload(catalog)
     long_df, stations, districts, pop, geo = load_frames()
     payload = map_payload(long_df, stations, districts, pop)
     paths, viewbox = project_paths(geo)
@@ -355,11 +420,13 @@ def build(out: Path = DEFAULT_OUT, indexable=None, host=None) -> Path:
         "high-profile/index.html": high_profile_page(indexable=live),
         "media-gap/index.html": media_gap_page(indexable=live),
         "method/index.html": method_page(indexable=live),
+        "daily-sweeps/index.html": daily_sweeps_page(catalog, indexable=live),
         "404.html": not_found_page(indexable=live),
         "robots.txt": robots,
         "assets/map-data.js": "window.CW_DATA = " + json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + ";\n",
+        "assets/sweeps-data.js": "window.CW_SWEEPS = " + json.dumps(sweep_payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + ";\n",
     }
-    for name in ("site.css", "map.js"):
+    for name in ("site.css", "map.js", "sweeps.js"):
         files[f"assets/{name}"] = (ASSETS_SRC / name).read_text()
     for rel, text in files.items():
         p = out / rel
