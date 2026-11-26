@@ -73,13 +73,28 @@ def _valid_iso_date(value) -> bool:
     return parsed <= _today_sast()
 
 
+def _placeholder_token(text: str) -> bool:
+    """True if the summary is, or starts with, a placeholder token (any length)."""
+    folded = text.casefold()
+    if folded in PLACEHOLDER_SUMMARIES:
+        return True
+    first = re.split(r"[\s:.,;/@_\-]+", folded, maxsplit=1)[0]
+    # Single-letter or two-character tokens like "x" / "na" are only
+    # placeholders when they are the entire summary.
+    if first in PLACEHOLDER_SUMMARIES and first not in {"x", "na", "n/a"}:
+        return True
+    return False
+
+
 def _valid_summary(value) -> bool:
     if not isinstance(value, str):
         return False
     text = value.strip()
-    if len(text) < MIN_SUMMARY_LEN:
+    if not text:
         return False
-    if text.casefold() in PLACEHOLDER_SUMMARIES:
+    if _placeholder_token(text):
+        return False
+    if len(text) < MIN_SUMMARY_LEN:
         return False
     return True
 

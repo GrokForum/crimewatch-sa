@@ -365,10 +365,9 @@ def build(out: Path = DEFAULT_OUT, indexable=None, host=None) -> Path:
     }
     for name in ("site.css", "map.js"):
         files[f"assets/{name}"] = (ASSETS_SRC / name).read_text()
-    # Also treat a source-tree /daily/ page as a public daily build, even if
-    # it has not yet been copied into the planned files dict.
-    if (ASSETS_SRC / "daily" / "index.html").is_file():
-        files.setdefault("daily/index.html", (ASSETS_SRC / "daily" / "index.html").read_text())
+    # Detect /daily/ in planned rels, leftover output, and ASSETS_SRC
+    # separately. A source-tree daily page is not copied into `files` before
+    # this check, so the source_dirs=[ASSETS_SRC] arm is what catches it.
     dr.assert_build_allowed(rels=files, out=out, source_dirs=[ASSETS_SRC])
     if out.exists():
         shutil.rmtree(out)

@@ -149,6 +149,35 @@ def test_rejects_future_iso_date(tmp_path):
     assert any("public-page GO is not recorded" in f for f in fails)
 
 
+@pytest.mark.parametrize("field", ["answer_a", "answer_b"])
+@pytest.mark.parametrize(
+    "bad_date",
+    ["x", "FIXTURE", "2026-13-40", "2026/11/26", "26 Nov 2026"],
+)
+def test_rejects_non_iso_or_unparseable_date_on_answers_a_and_b(
+    tmp_path, field, bad_date
+):
+    summary = VALID_SUMMARY_A if field == "answer_a" else VALID_SUMMARY_B
+    path = _write_preconditions(
+        tmp_path, **{field: _answer(date=bad_date, summary=summary)}
+    )
+    fails = dr.check_daily_release_allowed(path=path)
+    label = "answer (a)" if field == "answer_a" else "answer (b)"
+    assert any(label in f for f in fails)
+
+
+@pytest.mark.parametrize("field", ["answer_a", "answer_b"])
+def test_rejects_future_iso_date_on_answers_a_and_b(tmp_path, field):
+    future = (_today_sast() + timedelta(days=1)).isoformat()
+    summary = VALID_SUMMARY_A if field == "answer_a" else VALID_SUMMARY_B
+    path = _write_preconditions(
+        tmp_path, **{field: _answer(date=future, summary=summary)}
+    )
+    fails = dr.check_daily_release_allowed(path=path)
+    label = "answer (a)" if field == "answer_a" else "answer (b)"
+    assert any(label in f for f in fails)
+
+
 @pytest.mark.parametrize("placeholder", ["TODO", "TBD", "FIXTURE", "x"])
 def test_rejects_placeholder_summary(tmp_path, placeholder):
     path = _write_preconditions(
@@ -160,6 +189,14 @@ def test_rejects_placeholder_summary(tmp_path, placeholder):
 
 def test_rejects_too_short_summary(tmp_path):
     path = _write_preconditions(tmp_path, answer_a=_answer(summary="too short"))
+    fails = dr.check_daily_release_allowed(path=path)
+    assert any("answer (a)" in f for f in fails)
+
+
+def test_rejects_long_placeholder_prefix_summary(tmp_path):
+    summary = "TODO additional wording to exceed thirty"
+    assert len(summary) >= 30
+    path = _write_preconditions(tmp_path, answer_a=_answer(summary=summary))
     fails = dr.check_daily_release_allowed(path=path)
     assert any("answer (a)" in f for f in fails)
 
@@ -218,3 +255,26 @@ def test_gate_fails_for_site_refuses_flag_on_without_daily_tree(
     # The site gate must use the same arm, even with no /daily/ tree.
     gate_fails = sg.check_site(site, private_names=[])
     assert any("public-page GO is not recorded" in f for f in gate_fails)
+
+
+def test_assert_build_allowed_refuses_daily_rels():
+    with pytest.raises(dr.DailyReleaseError, match="public-page GO"):
+        dr.assert_build_allowed(flag=False, rels=["daily/index.html"])
+
+
+def test_assert_build_allowed_refuses_source_dirs(tmp_path):
+    src = tmp_path / "src"
+    (src / "daily").mkdir(parents=True)
+    (src / "daily" / "index.html").write_text("<html><body>src</body></html>")
+    with pytest.raises(dr.DailyReleaseError, match="public-page GO"):
+        dr.assert_build_allowed(flag=False, source_dirs=[src])
+
+
+def test_build_itself_refuses_daily_in_output_tree(tmp_path):
+    out = tmp_path / "site"
+    (out / "daily").mkdir(parents=True)
+    (out / "daily" / "index.html").write_text(
+        "<html><body>leftover daily</body></html>", encoding="utf-8"
+    )
+    with pytest.raises(dr.DailyReleaseError, match="public-page GO"):
+        bs.build(out)
