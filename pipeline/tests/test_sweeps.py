@@ -501,3 +501,42 @@ def test_known_protected_handles_come_from_repo_evidence():
     assert sweeps.KNOWN_PROTECTED_HANDLES == frozenset({"wicks_jeff"})
     for handle in sweeps.KNOWN_PROTECTED_HANDLES:
         assert handle in rfc or f"@{handle}" in rfc
+
+
+@pytest.mark.parametrize("phrase", [
+    "remain in custody",
+    "is in hospital",
+    "is in court",
+    "in connection with",
+    "in which",
+])
+def test_day_summary_in_custody_and_similar_are_allowed(phrase):
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["summary"] += f" the suspect {phrase} the official notice."
+            break
+    else:
+        raise AssertionError("no sourced day in fixture")
+    assert sweeps.validate(catalog) == [], phrase
+
+
+def test_the_hub_of_the_community_is_allowed():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " It was the hub of the community."
+            break
+    assert sweeps.validate(catalog) == []
+
+
+def test_community_hub_separator_variants_are_allowed():
+    for sep in (" ", "-", "\u2013", "\u00a0", "."):
+        catalog = sweeps.load()
+        for day in catalog["days"]:
+            if day["items"]:
+                day["items"][0]["summary"] += f" A community{sep}hub opened nearby."
+                break
+        else:
+            raise AssertionError("no sourced day in fixture")
+        assert sweeps.validate(catalog) == [], ascii(sep)

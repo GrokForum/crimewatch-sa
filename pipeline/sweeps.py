@@ -30,7 +30,8 @@ LEAN_EMPTY_SUMMARY = (
 )
 
 # Public catalog text must not point at internal working material.
-# Target private-Hub phrases, not a bare "hub" (so "community hub" is allowed).
+# Target private-Hub phrases, not a bare "hub" (so "community hub" and
+# "the hub of the community" are allowed).
 # Official uses of "internal affairs" / "internal investigation" are left alone.
 _INTERNAL_OK_RE = re.compile(r"(?i)\binternal\s+(?:affairs|investigation)s?\b")
 PROCESS_RE = re.compile(
@@ -40,7 +41,7 @@ PROCESS_RE = re.compile(
     r"|\boperational\s+notes?\b"
     r"|\bnoted\s+on\s+the\s+(?:private\s+)?hub\b"
     r"|\bthe\s+notes\b"
-    r"|\bthe\s+hub\b"
+    r"|\bthe\s+hub\b(?!\s+of\b)"
     r"|\bprivate\s+hub\b"
     r"|\bprivate\s+draft\s+page\b"
 )
@@ -72,6 +73,7 @@ _PLACE_STOP = frozenset({
     "was", "were", "also", "reported", "added", "this", "that", "their",
     "his", "her", "its", "our", "official", "media", "civil", "society",
     "sources", "source", "headline", "figures", "figure",
+    "custody", "hospital", "court", "connection", "which",
 })
 
 PUBLISHABLE_ROLES = frozenset({"official", "police", "media", "public-figure"})

@@ -16,6 +16,23 @@ _DAYS_PER_YEAR = 365.25
 _UNDER_18_DAYS = 18 * _DAYS_PER_YEAR
 _UNDER_18_MONTHS = 18 * 12  # 216; 216 months is 18 years exactly and is allowed
 
+# Unicode dashes/minus and NBSP. Normalise before matching; the shared
+# separator class still lists them so a regex used on raw text is consistent.
+_DASH_TO_HYPHEN = str.maketrans({
+    "\u2010": "-",  # hyphen
+    "\u2011": "-",  # non-breaking hyphen
+    "\u2012": "-",  # figure dash
+    "\u2013": "-",  # en dash
+    "\u2014": "-",  # em dash
+    "\u2212": "-",  # minus sign
+    "\u00a0": " ",  # no-break space
+})
+
+# Whitespace, hyphen, en/em dash and the other Unicode dashes, NBSP, optional dot.
+# Used between every token in grade, role-number, age and word-number forms.
+_SEP_CHARS = "\u00a0\u2010\u2011\u2012\u2013\u2014\u2212"
+_SEP = r"[\s." + _SEP_CHARS + r"-]*"
+
 _SMALL = {
     "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
     "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
@@ -29,17 +46,29 @@ _SCALES = {"hundred": 100, "thousand": 1000, "million": 1_000_000}
 _ROLE = (
     r"child|children|teen|teens|teenager|teenagers|boy|boys|"
     r"girl|girls|baby|babies|toddler|toddlers|learner|learners|"
-    r"pupil|pupils|infant|infants|minor|minors"
+    r"pupil|pupils|infant|infants|minor|minors|"
+    r"grandchildren|granddaughters|granddaughter|grandsons|"
+    r"grandson|grandchild|daughters|daughter|sons|son|"
+    r"nephews|nephew|nieces|niece"
 )
 _PERSON = (
     rf"{_ROLE}|student|students"
 )
+_AGE_UNIT = r"(?:years?|yrs?|months?|weeks?|days?)"
+# 7-yo, 7 y/o, 7 y.o., 7-y-o (after separator fuzz)
+_YO_ABBR = r"(?:yo|y[\s./-]*o\.?)"
+_SPLIT_RE = re.compile(r"[\s." + _SEP_CHARS + r"-]+")
+
+
+def normalise_separators(text: str) -> str:
+    """Map Unicode dashes/minus to '-' and NBSP to a space."""
+    return (text or "").translate(_DASH_TO_HYPHEN)
 
 
 def parse_word_number(text: str) -> int | None:
     """Parse a whole number written in English words, or None if invalid."""
     parts = [
-        p for p in re.split(r"[\s\-]+", (text or "").casefold())
+        p for p in _SPLIT_RE.split(normalise_separators(text or "").casefold())
         if p and p not in {"and", "a", "an"}
     ]
     if not parts:
@@ -68,17 +97,17 @@ def parse_word_number(text: str) -> int | None:
 
 def parse_number(text: str) -> int | None:
     """Parse digits or English words into an int, trying a trailing number run."""
-    raw = (text or "").strip().strip(" ,;:()[]")
+    raw = normalise_separators(text or "").strip().strip(" ,;:()[]")
     if not raw:
         return None
     if re.fullmatch(r"\d{1,7}", raw):
         return int(raw)
-    parts = re.split(r"\s+", raw)
+    parts = [p for p in _SPLIT_RE.split(raw) if p]
     for i in range(len(parts)):
-        cand = " ".join(parts[i:])
-        if re.fullmatch(r"\d{1,7}", cand):
-            return int(cand)
-        value = parse_word_number(cand)
+        cand = parts[i:]
+        if len(cand) == 1 and re.fullmatch(r"\d{1,7}", cand[0]):
+            return int(cand[0])
+        value = parse_word_number(" ".join(cand))
         if value is not None:
             return value
     return None
@@ -86,7 +115,7 @@ def parse_number(text: str) -> int | None:
 
 def _under_18(count: int, unit: str) -> bool:
     stem = unit.lower().rstrip("s")
-    if stem == "year":
+    if stem in {"year", "yr"}:
         return count < 18
     if stem == "month":
         return count < _UNDER_18_MONTHS
@@ -97,7 +126,7 @@ def _under_18(count: int, unit: str) -> bool:
     return False
 
 
-# Optional "a/an", then digits or a real English word-number (hyphens and "and").
+# Optional "a/an", then digits or a real English word-number.
 # Constrained to number words so a mid-sentence "aged nine was …" is not swallowed
 # by an unbounded [a-z]+ run.
 _NUMBER_WORDS = (
@@ -107,25 +136,24 @@ _NUMBER_WORDS = (
     "eighty|ninety|hundred|thousand|million"
 )
 _WORD_NUMBER = (
-    r"(?:(?:a|an)[\s\-]+)?"
+    r"(?:(?:a|an)" + _SEP + r")?"
     r"(?:" + _NUMBER_WORDS + r")"
-    r"(?:[\s\-]+(?:and[\s\-]+)?(?:" + _NUMBER_WORDS + r"))*"
+    r"(?:" + _SEP + r"(?:and" + _SEP + r")?(?:" + _NUMBER_WORDS + r"))*"
 )
-_NUM_TOKEN = r"(?:(?:a|an)\s+)?(?:\d{1,7}|" + _WORD_NUMBER + r")"
+_NUM_TOKEN = r"(?:(?:a|an)" + _SEP + r")?(?:\d{1,7}|" + _WORD_NUMBER + r")"
 _UNIT_OLD_RE = re.compile(
-    rf"(?ix)\b(?P<num>{_NUM_TOKEN})\s*[-–]?\s*(?P<unit>years?|months?|weeks?|days?)"
-    r"\s*(?:[-–]?\s*old|of\s+age)\b"
+    rf"(?ix)\b(?P<num>{_NUM_TOKEN}){_SEP}(?P<unit>{_AGE_UNIT})"
+    rf"{_SEP}(?:old|of{_SEP}age)\b"
 )
 _AGED_UNIT_RE = re.compile(
-    rf"(?ix)\baged\s+(?P<num>{_NUM_TOKEN})\s*(?P<unit>years?|months?|weeks?|days?)\b"
+    rf"(?ix)\baged{_SEP}(?P<num>{_NUM_TOKEN}){_SEP}(?P<unit>{_AGE_UNIT})\b"
 )
 _AGE_N_RE = re.compile(
-    rf"(?ix)\b(?:age|aged)\s+(?:of\s+)?(?P<num>{_NUM_TOKEN})"
-    r"\b(?!\s*[-–]\s*(?:1[8-9]|[2-9]\d))"
+    rf"(?ix)\b(?:age|aged){_SEP}(?:of{_SEP})?(?P<num>{_NUM_TOKEN})"
+    r"\b(?!" + _SEP + r"(?:1[8-9]|[2-9]\d))"
 )
 _YO_RE = re.compile(
-    rf"(?ix)\b(?P<num>{_NUM_TOKEN})\s*"
-    r"(?:y\s*/\s*o|y\s*\.\s*o\.?|yrs?|yo)\b"
+    rf"(?ix)\b(?P<num>{_NUM_TOKEN}){_SEP}{_YO_ABBR}\b"
 )
 
 
@@ -141,15 +169,15 @@ def _duration_under_18(text: str) -> bool:
 
 
 def _stated_years_under_18(text: str) -> bool:
-    """'age 12', 'aged twelve', '12 y/o', '12 y.o.' — years implied, not a duration."""
+    """'age 12', 'aged twelve', '12 y/o', '7-yo' — years implied, not a duration."""
     for match in _YO_RE.finditer(text):
         count = parse_number(match.group("num"))
         if count is not None and count < 18:
             return True
     for match in _AGE_N_RE.finditer(text):
         # Skip if this 'aged N' is 'aged N months/weeks/days/years' (handled above).
-        tail = text[match.end():match.end() + 16].casefold()
-        if re.match(r"\s*(years?|months?|weeks?|days?)\b", tail):
+        tail = text[match.end():match.end() + 24]
+        if re.match(rf"(?ix){_SEP}{_AGE_UNIT}\b", tail):
             continue
         count = parse_number(match.group("num"))
         if count is not None and count < 18:
@@ -158,12 +186,18 @@ def _stated_years_under_18(text: str) -> bool:
 
 
 _ROLE_BRACKET_RE = re.compile(
-    rf"(?ix)\b(?:{_ROLE})\s*[\(\[]\s*(?P<num>[^)\]]+?)\s*[\)\]]"
+    rf"(?ix)\b(?:{_ROLE}){_SEP}[\(\[]{_SEP}(?P<num>[^)\]]+?){_SEP}[\)\]]"
 )
+# Closed "the child, 7," and unclosed "The girl, 14 was".
 _ROLE_APPOSITIVE_RE = re.compile(
-    rf"(?ix)\b(?:the|a|an)?\s*(?:{_ROLE})\s*,\s*(?P<num>[^,]+?)\s*,"
+    rf"(?ix)\b(?:(?:the|a|an){_SEP})?(?:{_ROLE}){_SEP},{_SEP}(?P<num>{_NUM_TOKEN})"
+    rf"(?:{_SEP},|(?={_SEP}(?:was|were|is|are|had|has|have|died|who|and|but|when)\b)|$)"
 )
-
+_ROLE_WAS_RE = re.compile(
+    rf"(?ix)\b(?:(?:the|a|an){_SEP})?(?:{_ROLE}){_SEP}"
+    rf"(?:was|were|is|are){_SEP}(?P<num>{_NUM_TOKEN})"
+    rf"(?:{_SEP}(?P<unit>{_AGE_UNIT}))?\b"
+)
 
 # Count-of-N nouns that are not an age, e.g. "children of 15 families".
 _ROLE_OF_COUNT_NOUN = (
@@ -172,40 +206,76 @@ _ROLE_OF_COUNT_NOUN = (
     r"witnesses|students|pupils|children|boys|girls|men|women"
 )
 _ROLE_OF_RE = re.compile(
-    rf"(?ix)\b(?:{_ROLE})\s+of\s+(?P<num>{_NUM_TOKEN})\b"
-    rf"(?!\s+(?:{_ROLE_OF_COUNT_NOUN})\b)"
+    rf"(?ix)\b(?:{_ROLE}){_SEP}of{_SEP}(?P<num>{_NUM_TOKEN})"
+    rf"(?:{_SEP}(?P<unit>{_AGE_UNIT}))?\b"
+    rf"(?!{_SEP}(?:{_ROLE_OF_COUNT_NOUN})\b)"
 )
 
 
+def _tail_is_later_ago(tail: str) -> bool:
+    return bool(re.match(rf"(?ix){_SEP}(?:later|ago|earlier|thereafter)\b", tail or ""))
+
+
+def _honour_count(count: int, unit: str | None, tail: str) -> bool:
+    """True if this number, honouring a following unit, is an age under 18."""
+    if unit:
+        if _tail_is_later_ago(tail):
+            return False
+        return _under_18(count, unit)
+    # Bare number: honour a unit that starts the tail, else treat as years.
+    match = re.match(
+        rf"(?ix){_SEP}(?P<unit>{_AGE_UNIT})(?P<rest>.*)$",
+        tail or "",
+    )
+    if match:
+        rest = match.group("rest") or ""
+        has_old = bool(re.match(rf"(?ix){_SEP}(?:old|of{_SEP}age)\b", rest))
+        if _tail_is_later_ago(rest) and not has_old:
+            return False
+        return _under_18(count, match.group("unit"))
+    return count < 18
+
+
 def _role_number_under_18(text: str) -> bool:
-    """Bare under-18 numbers next to child/teen/... wording, or in brackets/apposition."""
-    for rx in (_ROLE_BRACKET_RE, _ROLE_APPOSITIVE_RE, _ROLE_OF_RE):
+    """Bare under-18 numbers next to role wording, brackets, apposition, or 'of N'."""
+    for rx in (_ROLE_BRACKET_RE, _ROLE_APPOSITIVE_RE, _ROLE_OF_RE, _ROLE_WAS_RE):
         for match in rx.finditer(text):
             chunk = match.group("num").strip()
-            unit_m = re.match(
-                r"(?ix)(.+?)\s*(years?|months?|weeks?|days?)\b(.*)$",
-                chunk,
-            )
-            # 'the child, 7 days later,' is not a bare age.
-            if unit_m and not re.search(r"(?i)\b(?:old|of\s+age)\b", chunk):
-                continue
+            unit = match.groupdict().get("unit")
+            tail = text[match.end():]
+            # Bracket/appositive captures may include a unit in the chunk.
+            if not unit:
+                embedded = re.match(
+                    rf"(?ix)(?P<num>{_NUM_TOKEN}){_SEP}(?P<unit>{_AGE_UNIT})\b(?P<rest>.*)$",
+                    chunk,
+                )
+                if embedded:
+                    chunk = embedded.group("num")
+                    unit = embedded.group("unit")
+                    tail = embedded.group("rest") + tail
             count = parse_number(chunk)
-            if count is not None and count < 18:
+            if count is None:
+                continue
+            if _honour_count(count, unit, tail):
                 return True
     return False
 
 
-_GRADE_MARK = r"(?:grade|gr\.?)"
+# "grade" or the abbreviation "Gr" / "Gr." (the optional dot is a _SEP).
+# Not other words that merely contain "gr".
+_GRADE_MARK = r"(?:grade|gr)"
 _GRADE_RE = re.compile(
     rf"(?ix)"
-    rf"\b{_GRADE_MARK}\s*(?P<g1>[1-9]|1[0-2])\s+(?:{_PERSON})\b"
-    rf"|\b(?:{_PERSON})\s+(?:in\s+|of\s+)?{_GRADE_MARK}\s*(?P<g2>[1-9]|1[0-2])\b"
+    rf"\b{_GRADE_MARK}{_SEP}(?P<g1>[1-9]|1[0-2]){_SEP}(?:{_PERSON})\b"
+    rf"|\b(?:{_PERSON}){_SEP}(?:(?:in|of){_SEP})?{_GRADE_MARK}{_SEP}(?P<g2>[1-9]|1[0-2])\b"
 )
 
 
 def has_person_grade(text: str) -> bool:
     """True if a school grade is tied to a person (learner, pupil, child, ...)."""
-    return bool(text and _GRADE_RE.search(text))
+    if not text:
+        return False
+    return bool(_GRADE_RE.search(normalise_separators(text)))
 
 
 def has_minor_age(text: str) -> bool:
@@ -214,11 +284,14 @@ def has_minor_age(text: str) -> bool:
     Covers year, month, week and day counts in digits or words, plus a bare
     under-18 number next to child/teen/boy/girl/baby/toddler/learner/pupil
     wording, in an appositive or brackets, or in a "<role> of N" form.
-    A sentence length such as
-    '7 years in prison' is not an age and is allowed. Adult ages (18+) pass.
+    A following unit is honoured ('an infant of 18 months' is still a minor;
+    'a child of 18' is not). A sentence length such as
+    '7 years in prison' or 'sentenced to 18 months' is not an age and is
+    allowed. Adult ages (18+) pass.
     """
     if not text:
         return False
+    text = normalise_separators(text)
     if _duration_under_18(text):
         return True
     if _stated_years_under_18(text):
