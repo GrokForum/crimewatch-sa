@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 import site_content as C
 from popia_gate import EMAIL_RE, ID_RE, PHONE_RE
+import minor_guard
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CATALOG = ROOT / "data" / "sweeps.json"
@@ -29,87 +30,29 @@ LEAN_EMPTY_SUMMARY = (
 )
 
 # Public catalog text must not point at internal working material.
-# Word-boundary patterns catch variants such as "noted on the Hub",
-# "operational note", "hub", "notes" and "internal". Official uses of
-# "internal affairs" / "internal investigation" are left alone.
+# Target private-Hub phrases, not a bare "hub" (so "community hub" is allowed).
+# Official uses of "internal affairs" / "internal investigation" are left alone.
 _INTERNAL_OK_RE = re.compile(r"(?i)\binternal\s+(?:affairs|investigation)s?\b")
 PROCESS_RE = re.compile(
     r"(?ix)"
-    r"\bhub\b"
-    r"|\bnotes\b"
+    r"\bnotes\b"
     r"|\binternal\b"
     r"|\boperational\s+notes?\b"
     r"|\bnoted\s+on\s+the\s+(?:private\s+)?hub\b"
     r"|\bthe\s+notes\b"
+    r"|\bthe\s+hub\b"
     r"|\bprivate\s+hub\b"
     r"|\bprivate\s+draft\s+page\b"
 )
 
-# Exact ages under 18 (numeric or words). Applied to our wording only,
-# not to an external source URL, whose slug may repeat the publisher's text.
-_MINOR_AGE_WORDS = (
-    "zero|one|two|three|four|five|six|seven|eight|nine|ten|"
-    "eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen"
-)
-# Year-based exact ages under 18, including "age 12", "12 y/o" and "12 y.o."
-MINOR_AGE_RE = re.compile(
-    r"(?ix)(?:"
-    r"\b(?:[0-9]|1[0-7])\s*[-–]?\s*years?\s*[-–]?\s*old\b"
-    r"|\b(?:[0-9]|1[0-7])\s*years?\s+of\s+age\b"
-    r"|\baged\s+(?:[0-9]|1[0-7])\b(?!\s*[-–]\s*(?:1[8-9]|[2-9][0-9]))"
-    r"|\bage\s+(?:[0-9]|1[0-7])\b(?!\s*[-–]\s*(?:1[8-9]|[2-9][0-9]))"
-    r"|\b(?:[0-9]|1[0-7])\s*y\s*/\s*o\b"
-    r"|\b(?:[0-9]|1[0-7])\s*y\s*\.\s*o\.?\b"
-    r"|\b(?:[0-9]|1[0-7])\s*[-–]?\s*(?:yr|yrs|yo)\b"
-    r"|\b(?:" + _MINOR_AGE_WORDS + r")\s*[-–]?\s*years?\s*[-–]?\s*old\b"
-    r"|\b(?:" + _MINOR_AGE_WORDS + r")\s*years?\s+of\s+age\b"
-    r"|\baged\s+(?:" + _MINOR_AGE_WORDS + r")\b"
-    r"|\bage\s+(?:" + _MINOR_AGE_WORDS + r")\b"
-    r")"
-)
-
-# Month-based ages: any month count under 18 years (0-215 months).
-_MONTH_AGE_WORDS = _MINOR_AGE_WORDS + r"|eighteen|nineteen|twenty"
-_MONTH_WORD_VALUES = {
-    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
-    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
-    "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
-    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
-    "twenty": 20,
-}
-_MONTHS_UNDER_18_YEARS = 18 * 12  # 216; under this is still a minor
-MONTH_AGE_RE = re.compile(
-    r"(?ix)\b("
-    r"\d{1,3}"
-    r"|" + _MONTH_AGE_WORDS + r")"
-    r"\s*[-–]?\s*months?\s*(?:[-–]?\s*old|of\s+age)\b"
-    r"|\baged\s+("
-    r"\d{1,3}"
-    r"|" + _MONTH_AGE_WORDS + r")"
-    r"\s*months?\b"
-)
-
-
-def has_minor_age(text: str) -> bool:
-    """True if the text states an exact age under 18 years (years or months)."""
-    if not text:
-        return False
-    if MINOR_AGE_RE.search(text):
-        return True
-    for m in MONTH_AGE_RE.finditer(text):
-        raw = (m.group(1) or m.group(2) or "").casefold()
-        if raw.isdigit():
-            months = int(raw)
-        else:
-            months = _MONTH_WORD_VALUES.get(raw)
-            if months is None:
-                continue
-        if months < _MONTHS_UNDER_18_YEARS:
-            return True
-    return False
+# Exact-age and school-grade checks live in minor_guard. Re-exported so existing
+# catalog tests can keep calling sweeps.has_minor_age.
+has_minor_age = minor_guard.has_minor_age
+scan_our_wording = minor_guard.scan_our_wording
 
 # Handles known to be protected: they may be named in a public-figure or
-# media role, but their X post links are refused.
+# media role, but their X post links are refused. Grow this set only from
+# evidence already in the repo (RFC-005 records @wicks_jeff as protected).
 KNOWN_PROTECTED_HANDLES = frozenset({"wicks_jeff"})
 
 # Capitalised tokens in a day summary that do not need a matching sourced item.
@@ -193,16 +136,10 @@ def _scan_text(label: str, text: str) -> list[str]:
 
 
 def _scan_our_wording(label: str, *parts: str) -> list[str]:
-    """Age and process checks on text we wrote, not on external source URLs."""
-    fails = []
-    for part in parts:
-        if not part:
-            continue
-        if has_minor_age(part):
-            fails.append(f"{label}: exact age of a person under 18")
-            break
-    text = " ".join(p for p in parts if p)
-    fails.extend(_scan_text(label, text))
+    """Age, grade and process checks on text we wrote, not on external source URLs."""
+    fails = list(scan_our_wording(label, *parts))
+    joined = " ".join(p for p in parts if p)
+    fails.extend(_scan_text(label, joined))
     return fails
 
 

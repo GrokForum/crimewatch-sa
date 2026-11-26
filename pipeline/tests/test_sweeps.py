@@ -6,6 +6,7 @@ import pytest
 
 import build_site as bs
 import site_gate as sg
+import minor_guard
 import sweeps
 
 
@@ -222,11 +223,16 @@ def test_gate_flags_missing_disclaimer_in_sweeps_data(site_copy):
 def test_committed_catalog_has_no_minor_exact_ages():
     catalog = sweeps.load()
     for day in catalog["days"]:
+        assert not sweeps.has_minor_age(day.get("summary") or ""), day["date"]
+        assert not minor_guard.has_person_grade(day.get("summary") or ""), day["date"]
         for item in day["items"]:
             for part in (item.get("title"), item.get("place"), item.get("summary")):
                 assert not sweeps.has_minor_age(part or ""), (item["id"], part)
+                assert not minor_guard.has_person_grade(part or ""), (item["id"], part)
             for src in item.get("sources") or []:
-                assert not sweeps.has_minor_age(src.get("title") or ""), item["id"]
+                title = src.get("title") or ""
+                assert not sweeps.has_minor_age(title), item["id"]
+                assert not minor_guard.has_person_grade(title), item["id"]
 
 
 def test_minor_exact_age_is_refused():
@@ -419,3 +425,79 @@ def test_known_protected_handle_status_url_is_refused():
             break
     fails = sweeps.validate(catalog)
     assert any("protected-post links are refused" in f and ident in f for f in fails), fails
+
+
+@pytest.mark.parametrize("phrase", [
+    "child (15)",
+    "teen (15)",
+    "the child, 7,",
+    "eighteen-month-old",
+    "two hundred and fifteen months old",
+    "a 10-week-old baby",
+    "seven days old",
+])
+def test_catalog_refuses_bare_and_worded_minor_ages(phrase):
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += f" A person ({phrase}) was wounded."
+            ident = day["items"][0]["id"]
+            break
+    fails = sweeps.validate(catalog)
+    assert any("exact age of a person under 18" in f and ident in f for f in fails), (phrase, fails)
+
+
+def test_day_summary_minor_age_is_refused():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        day["summary"] += " A child (15) was also reported."
+        date = day["date"]
+        break
+    fails = sweeps.validate(catalog)
+    assert any("exact age of a person under 18" in f and date in f for f in fails), fails
+
+
+def test_grade_tied_to_person_is_refused():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " A Grade 12 learner was arrested."
+            ident = day["items"][0]["id"]
+            break
+    fails = sweeps.validate(catalog)
+    assert any("school grade tied to a person" in f and ident in f for f in fails), fails
+
+
+def test_community_hub_is_allowed():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " A community hub opened nearby."
+            break
+    assert sweeps.validate(catalog) == []
+
+
+def test_the_community_hub_is_allowed():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " The community hub issued a statement."
+            break
+    assert sweeps.validate(catalog) == []
+
+
+def test_sentence_length_is_allowed():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " He was sentenced to 7 years in prison."
+            break
+    assert sweeps.validate(catalog) == []
+
+
+def test_known_protected_handles_come_from_repo_evidence():
+    # Grow KNOWN_PROTECTED_HANDLES only from evidence already in the repo.
+    rfc = (sweeps.ROOT / "changes" / "RFC-005.md").read_text()
+    assert sweeps.KNOWN_PROTECTED_HANDLES == frozenset({"wicks_jeff"})
+    for handle in sweeps.KNOWN_PROTECTED_HANDLES:
+        assert handle in rfc or f"@{handle}" in rfc
