@@ -116,6 +116,13 @@ def test_word_number_parser(words, value):
     "nine hundred and thirty-nine weeks old",
     "age of 12",
     "fifteen years of age",
+    "A boy aged nine was wounded.",
+    "age twelve was reported.",
+    "a boy of 9",
+    "a child of 15",
+    "a girl of nine",
+    "a minor of 16",
+    "a teen of 14",
 ])
 def test_minor_age_mutation_is_refused(phrase):
     fixture = _mutate_item(phrase)
@@ -145,6 +152,10 @@ def test_day_summary_minor_age_mutation_is_refused():
     "A 21-year-old learner was arrested.",
     "nine hundred and forty weeks old",
     "six thousand five hundred and seventy-five days old",
+    "a group of 9",
+    "a child of the community",
+    "children of 15 families",
+    "a boy of 18",
 ])
 def test_adult_age_and_sentence_length_are_allowed(phrase):
     fixture = _mutate_item(phrase)
@@ -160,6 +171,9 @@ def test_adult_age_and_sentence_length_are_allowed(phrase):
     "Grade 7 learner",
     "a grade 8 boy",
     "the pupil of grade 3",
+    "Gr 7 pupil",
+    "Gr. 7 pupil",
+    "gr7 learner",
 ])
 def test_grade_tied_to_person_is_refused(phrase):
     fixture = _mutate_item(phrase)
@@ -172,6 +186,9 @@ def test_grade_tied_to_person_is_refused(phrase):
     "A 21-year-old learner was arrested.",
     "Grade 12 results were released.",
     "the grade of the offence",
+    "The larger group of 7 pupils gathered.",
+    "Mr. Grant, a pupil, spoke.",
+    "GR 12 results were released.",
 ])
 def test_untied_grade_or_adult_learner_is_allowed(phrase):
     fixture = _mutate_item(phrase)
@@ -185,3 +202,71 @@ def test_scan_reports_age_and_grade_together():
     fails = _scan(fixture)
     assert any("exact age of a person under 18" in f for f in fails), fails
     assert any("school grade tied to a person" in f for f in fails), fails
+
+
+@pytest.mark.parametrize("phrase", [
+    "A boy aged nine was wounded.",
+    "age twelve was reported.",
+])
+def test_mid_sentence_word_age_is_refused(phrase):
+    """Word ages must be captured even when more sentence text follows."""
+    fixture = _mutate_item(phrase)
+    fails = _scan(fixture)
+    assert any("exact age of a person under 18" in f for f in fails), (phrase, fails)
+    assert minor_guard.has_minor_age(phrase)
+
+
+@pytest.mark.parametrize("phrase", [
+    "a boy of 9",
+    "a child of 15",
+    "a girl of nine",
+    "a minor of 16",
+    "a teen of 14",
+    "a learner of 12",
+    "a pupil of 11",
+    "a baby of 2",
+    "a toddler of 3",
+    "an infant of 1",
+])
+def test_role_of_n_under_18_is_refused(phrase):
+    fixture = _mutate_item(phrase)
+    fails = _scan(fixture)
+    assert any("exact age of a person under 18" in f for f in fails), (phrase, fails)
+    assert minor_guard.has_minor_age(phrase)
+
+
+@pytest.mark.parametrize("phrase", [
+    "a group of 9",
+    "a child of the community",
+    "children of 15 families",
+    "a boy of 18",
+])
+def test_role_of_n_negatives_are_allowed(phrase):
+    fixture = _mutate_item(phrase)
+    fails = _scan(fixture)
+    assert not any("exact age of a person under 18" in f for f in fails), (phrase, fails)
+    assert not minor_guard.has_minor_age(phrase)
+
+
+@pytest.mark.parametrize("phrase", [
+    "Gr 7 pupil",
+    "Gr. 7 pupil",
+    "gr7 learner",
+])
+def test_grade_abbreviation_tied_to_person_is_refused(phrase):
+    fixture = _mutate_item(phrase)
+    fails = _scan(fixture)
+    assert any("school grade tied to a person" in f for f in fails), (phrase, fails)
+    assert minor_guard.has_person_grade(phrase)
+
+
+@pytest.mark.parametrize("phrase", [
+    "The larger group of 7 pupils gathered.",
+    "Mr. Grant, a pupil, spoke.",
+    "GR 12 results were released.",
+])
+def test_gr_as_a_different_word_is_allowed(phrase):
+    fixture = _mutate_item(phrase)
+    fails = _scan(fixture)
+    assert not any("school grade tied to a person" in f for f in fails), (phrase, fails)
+    assert not minor_guard.has_person_grade(phrase)

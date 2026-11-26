@@ -29,7 +29,7 @@ _SCALES = {"hundred": 100, "thousand": 1000, "million": 1_000_000}
 _ROLE = (
     r"child|children|teen|teens|teenager|teenagers|boy|boys|"
     r"girl|girls|baby|babies|toddler|toddlers|learner|learners|"
-    r"pupil|pupils|infant|infants"
+    r"pupil|pupils|infant|infants|minor|minors"
 )
 _PERSON = (
     rf"{_ROLE}|student|students"
@@ -97,10 +97,21 @@ def _under_18(count: int, unit: str) -> bool:
     return False
 
 
-# Optional "a/an", then digits or an English word-number (hyphens and "and").
-_NUM_TOKEN = (
-    r"(?:(?:a|an)\s+)?(?:\d{1,7}|(?:[a-z]+(?:[\s\-]+(?:and[\s\-]+)?[a-z]+)*))"
+# Optional "a/an", then digits or a real English word-number (hyphens and "and").
+# Constrained to number words so a mid-sentence "aged nine was …" is not swallowed
+# by an unbounded [a-z]+ run.
+_NUMBER_WORDS = (
+    "zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+    "eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
+    "eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|"
+    "eighty|ninety|hundred|thousand|million"
 )
+_WORD_NUMBER = (
+    r"(?:(?:a|an)[\s\-]+)?"
+    r"(?:" + _NUMBER_WORDS + r")"
+    r"(?:[\s\-]+(?:and[\s\-]+)?(?:" + _NUMBER_WORDS + r"))*"
+)
+_NUM_TOKEN = r"(?:(?:a|an)\s+)?(?:\d{1,7}|" + _WORD_NUMBER + r")"
 _UNIT_OLD_RE = re.compile(
     rf"(?ix)\b(?P<num>{_NUM_TOKEN})\s*[-–]?\s*(?P<unit>years?|months?|weeks?|days?)"
     r"\s*(?:[-–]?\s*old|of\s+age)\b"
@@ -154,9 +165,21 @@ _ROLE_APPOSITIVE_RE = re.compile(
 )
 
 
+# Count-of-N nouns that are not an age, e.g. "children of 15 families".
+_ROLE_OF_COUNT_NOUN = (
+    r"families|people|members|residents|households|communities|"
+    r"groups|teams|schools|villages|victims|suspects|officers|"
+    r"witnesses|students|pupils|children|boys|girls|men|women"
+)
+_ROLE_OF_RE = re.compile(
+    rf"(?ix)\b(?:{_ROLE})\s+of\s+(?P<num>{_NUM_TOKEN})\b"
+    rf"(?!\s+(?:{_ROLE_OF_COUNT_NOUN})\b)"
+)
+
+
 def _role_number_under_18(text: str) -> bool:
     """Bare under-18 numbers next to child/teen/... wording, or in brackets/apposition."""
-    for rx in (_ROLE_BRACKET_RE, _ROLE_APPOSITIVE_RE):
+    for rx in (_ROLE_BRACKET_RE, _ROLE_APPOSITIVE_RE, _ROLE_OF_RE):
         for match in rx.finditer(text):
             chunk = match.group("num").strip()
             unit_m = re.match(
@@ -172,10 +195,11 @@ def _role_number_under_18(text: str) -> bool:
     return False
 
 
+_GRADE_MARK = r"(?:grade|gr\.?)"
 _GRADE_RE = re.compile(
     rf"(?ix)"
-    rf"\bgrade\s*(?P<g1>[1-9]|1[0-2])\s+(?:{_PERSON})\b"
-    rf"|\b(?:{_PERSON})\s+(?:in\s+|of\s+)?grade\s*(?P<g2>[1-9]|1[0-2])\b"
+    rf"\b{_GRADE_MARK}\s*(?P<g1>[1-9]|1[0-2])\s+(?:{_PERSON})\b"
+    rf"|\b(?:{_PERSON})\s+(?:in\s+|of\s+)?{_GRADE_MARK}\s*(?P<g2>[1-9]|1[0-2])\b"
 )
 
 
@@ -189,7 +213,8 @@ def has_minor_age(text: str) -> bool:
 
     Covers year, month, week and day counts in digits or words, plus a bare
     under-18 number next to child/teen/boy/girl/baby/toddler/learner/pupil
-    wording or in an appositive or brackets. A sentence length such as
+    wording, in an appositive or brackets, or in a "<role> of N" form.
+    A sentence length such as
     '7 years in prison' is not an age and is allowed. Adult ages (18+) pass.
     """
     if not text:
