@@ -1,0 +1,17 @@
+{
+  "answer_a": {
+    "recorded": true,
+    "date": "2026-11-26",
+    "time_sast": "08:06",
+    "summary": "Keep redacted records until a request via privacy@grokforum.site, then remove from every surface including the private draft surface; keep a private takedown history."
+  },
+  "answer_b": {
+    "recorded": true,
+    "date": "2026-11-26",
+    "time_sast": "08:06",
+    "summary": "The critic reviewer (not the author) gives the per-day POPIA PASS and may override a daily_map.py mapping under section 6 with history."
+  },
+  "public_page_go": {
+    "recorded": false
+  }
+}
