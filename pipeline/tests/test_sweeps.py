@@ -224,9 +224,9 @@ def test_committed_catalog_has_no_minor_exact_ages():
     for day in catalog["days"]:
         for item in day["items"]:
             for part in (item.get("title"), item.get("place"), item.get("summary")):
-                assert not sweeps.MINOR_AGE_RE.search(part or ""), (item["id"], part)
+                assert not sweeps.has_minor_age(part or ""), (item["id"], part)
             for src in item.get("sources") or []:
-                assert not sweeps.MINOR_AGE_RE.search(src.get("title") or ""), item["id"]
+                assert not sweeps.has_minor_age(src.get("title") or ""), item["id"]
 
 
 def test_minor_exact_age_is_refused():
@@ -249,6 +249,40 @@ def test_worded_minor_age_is_refused():
             break
     fails = sweeps.validate(catalog)
     assert any("exact age of a person under 18" in f and ident in f for f in fails), fails
+
+
+@pytest.mark.parametrize("phrase", [
+    "age 12",
+    "12 y/o",
+    "12 y.o.",
+    "a 24-month-old infant",
+    "aged 24 months",
+    "215 months old",
+])
+def test_additional_minor_age_forms_are_refused(phrase):
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += f" A person ({phrase}) was wounded."
+            ident = day["items"][0]["id"]
+            break
+    fails = sweeps.validate(catalog)
+    assert any("exact age of a person under 18" in f and ident in f for f in fails), (phrase, fails)
+
+
+@pytest.mark.parametrize("phrase", [
+    "age 18",
+    "18 y/o",
+    "18 y.o.",
+    "216 months old",
+])
+def test_adult_age_forms_are_allowed(phrase):
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += f" A person ({phrase}) was arrested."
+            break
+    assert sweeps.validate(catalog) == [], phrase
 
 
 def test_adult_exact_age_is_allowed():
@@ -286,6 +320,7 @@ def test_publisher_url_slug_age_is_not_our_wording():
     "see the Hub",
     "see the notes",
     "an internal draft",
+    "a private draft page",
 ])
 def test_process_phrase_variants_are_refused(phrase):
     catalog = sweeps.load()
@@ -312,6 +347,19 @@ def test_sourced_day_summary_cannot_add_unsourced_place():
     for day in catalog["days"]:
         if day["items"]:
             day["summary"] += " A tavern shooting in Atlantis was also reported."
+            date = day["date"]
+            break
+    else:
+        raise AssertionError("no sourced day in fixture")
+    fails = sweeps.validate(catalog)
+    assert any("unsourced incident detail" in f and date in f for f in fails), fails
+
+
+def test_sourced_day_summary_cannot_add_lowercase_unsourced_place():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["summary"] += " a tavern shooting in atlantis was also reported."
             date = day["date"]
             break
     else:

@@ -42,6 +42,7 @@ PROCESS_RE = re.compile(
     r"|\bnoted\s+on\s+the\s+(?:private\s+)?hub\b"
     r"|\bthe\s+notes\b"
     r"|\bprivate\s+hub\b"
+    r"|\bprivate\s+draft\s+page\b"
 )
 
 # Exact ages under 18 (numeric or words). Applied to our wording only,
@@ -50,19 +51,62 @@ _MINOR_AGE_WORDS = (
     "zero|one|two|three|four|five|six|seven|eight|nine|ten|"
     "eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen"
 )
+# Year-based exact ages under 18, including "age 12", "12 y/o" and "12 y.o."
 MINOR_AGE_RE = re.compile(
     r"(?ix)(?:"
     r"\b(?:[0-9]|1[0-7])\s*[-–]?\s*years?\s*[-–]?\s*old\b"
     r"|\b(?:[0-9]|1[0-7])\s*years?\s+of\s+age\b"
     r"|\baged\s+(?:[0-9]|1[0-7])\b(?!\s*[-–]\s*(?:1[8-9]|[2-9][0-9]))"
-    r"|\b(?:[0-9]|1[0-7])\s*[-–]?\s*months?\s*[-–]?\s*old\b"
+    r"|\bage\s+(?:[0-9]|1[0-7])\b(?!\s*[-–]\s*(?:1[8-9]|[2-9][0-9]))"
+    r"|\b(?:[0-9]|1[0-7])\s*y\s*/\s*o\b"
+    r"|\b(?:[0-9]|1[0-7])\s*y\s*\.\s*o\.?\b"
     r"|\b(?:[0-9]|1[0-7])\s*[-–]?\s*(?:yr|yrs|yo)\b"
     r"|\b(?:" + _MINOR_AGE_WORDS + r")\s*[-–]?\s*years?\s*[-–]?\s*old\b"
     r"|\b(?:" + _MINOR_AGE_WORDS + r")\s*years?\s+of\s+age\b"
     r"|\baged\s+(?:" + _MINOR_AGE_WORDS + r")\b"
-    r"|\b(?:" + _MINOR_AGE_WORDS + r")\s*[-–]?\s*months?\s*[-–]?\s*old\b"
+    r"|\bage\s+(?:" + _MINOR_AGE_WORDS + r")\b"
     r")"
 )
+
+# Month-based ages: any month count under 18 years (0-215 months).
+_MONTH_AGE_WORDS = _MINOR_AGE_WORDS + r"|eighteen|nineteen|twenty"
+_MONTH_WORD_VALUES = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+    "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+    "twenty": 20,
+}
+_MONTHS_UNDER_18_YEARS = 18 * 12  # 216; under this is still a minor
+MONTH_AGE_RE = re.compile(
+    r"(?ix)\b("
+    r"\d{1,3}"
+    r"|" + _MONTH_AGE_WORDS + r")"
+    r"\s*[-–]?\s*months?\s*(?:[-–]?\s*old|of\s+age)\b"
+    r"|\baged\s+("
+    r"\d{1,3}"
+    r"|" + _MONTH_AGE_WORDS + r")"
+    r"\s*months?\b"
+)
+
+
+def has_minor_age(text: str) -> bool:
+    """True if the text states an exact age under 18 years (years or months)."""
+    if not text:
+        return False
+    if MINOR_AGE_RE.search(text):
+        return True
+    for m in MONTH_AGE_RE.finditer(text):
+        raw = (m.group(1) or m.group(2) or "").casefold()
+        if raw.isdigit():
+            months = int(raw)
+        else:
+            months = _MONTH_WORD_VALUES.get(raw)
+            if months is None:
+                continue
+        if months < _MONTHS_UNDER_18_YEARS:
+            return True
+    return False
 
 # Handles known to be protected: they may be named in a public-figure or
 # media role, but their X post links are refused.
@@ -77,6 +121,15 @@ _SUMMARY_FRAMING = frozenset({
     "quarterly", "sources", "headline", "africa", "south",
 })
 _SUMMARY_TOKEN_RE = re.compile(r"\b[A-Z][A-Za-z0-9-]*\b")
+_PLACE_PREP_RE = re.compile(
+    r"(?i)\b(?:in|at|near|outside)\s+([A-Za-z][A-Za-z'-]*)"
+)
+_PLACE_STOP = frozenset({
+    "the", "a", "an", "and", "or", "of", "for", "with", "on", "to", "from",
+    "was", "were", "also", "reported", "added", "this", "that", "their",
+    "his", "her", "its", "our", "official", "media", "civil", "society",
+    "sources", "source", "headline", "figures", "figure",
+})
 
 PUBLISHABLE_ROLES = frozenset({"official", "police", "media", "public-figure"})
 ITEM_KINDS = frozenset({"news", "official", "civil-society", "x-pulse"})
@@ -145,7 +198,7 @@ def _scan_our_wording(label: str, *parts: str) -> list[str]:
     for part in parts:
         if not part:
             continue
-        if MINOR_AGE_RE.search(part):
+        if has_minor_age(part):
             fails.append(f"{label}: exact age of a person under 18")
             break
     text = " ".join(p for p in parts if p)
@@ -305,6 +358,14 @@ def _check_day_summary(date: str, summary: str, items: list) -> list[str]:
         if key not in haystack:
             fails.append(f"{date}: day summary names unsourced incident detail")
             break
+    else:
+        for m in _PLACE_PREP_RE.finditer(summary):
+            place = m.group(1).casefold()
+            if len(place) < 3 or place in _SUMMARY_FRAMING or place in _PLACE_STOP:
+                continue
+            if not place.isdigit() and place not in haystack:
+                fails.append(f"{date}: day summary names unsourced incident detail")
+                break
     return fails
 
 
