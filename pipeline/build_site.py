@@ -345,14 +345,13 @@ def not_found_page(indexable=False):
 def build(out: Path = DEFAULT_OUT, indexable=None, host=None) -> Path:
     # Flag defaults off. A flag-on or /daily/ build is refused without (a), (b)
     # and a recorded public-page GO (RFC-006 §11). The public-page GO is not
-    # recorded yet, so a flag-on build currently fails closed.
-    dr.assert_build_allowed()
+    # recorded yet, so a flag-on or /daily/ build currently fails closed.
+    # The hook inspects planned rels, the output tree, and source assets
+    # itself so a /daily/ path cannot be written if the caller omits args.
     live = resolve_indexable(indexable, host)
     long_df, stations, districts, pop, geo = load_frames()
     payload = map_payload(long_df, stations, districts, pop)
     paths, viewbox = project_paths(geo)
-    if out.exists():
-        shutil.rmtree(out)
     robots = "User-agent: *\nAllow: /\n" if live else "User-agent: *\nDisallow: /\n"
     files = {
         "index.html": home_page(indexable=live),
@@ -366,6 +365,13 @@ def build(out: Path = DEFAULT_OUT, indexable=None, host=None) -> Path:
     }
     for name in ("site.css", "map.js"):
         files[f"assets/{name}"] = (ASSETS_SRC / name).read_text()
+    # Also treat a source-tree /daily/ page as a public daily build, even if
+    # it has not yet been copied into the planned files dict.
+    if (ASSETS_SRC / "daily" / "index.html").is_file():
+        files.setdefault("daily/index.html", (ASSETS_SRC / "daily" / "index.html").read_text())
+    dr.assert_build_allowed(rels=files, out=out, source_dirs=[ASSETS_SRC])
+    if out.exists():
+        shutil.rmtree(out)
     for rel, text in files.items():
         p = out / rel
         p.parent.mkdir(parents=True, exist_ok=True)
