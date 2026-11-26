@@ -7,8 +7,10 @@ GO. The committed file records (a) and (b) and does not record a public-page
 GO, so the live check refuses.
 
 Dates must be real ISO YYYY-MM-DD values, parseable and not in the future
-(Africa/Johannesburg). Summaries for (a) and (b) must not be placeholders
-and must meet a minimum length.
+(Africa/Johannesburg). Summaries for (a) and (b) must meet a minimum length and must not be
+made mostly of placeholder tokens or of repeated characters or tokens.
+A genuine sentence that merely mentions one such word is allowed.
+The /daily/ tree is matched case-insensitively.
 
 The flag defaults to off. This module does not schedule anything.
 """
@@ -73,17 +75,36 @@ def _valid_iso_date(value) -> bool:
     return parsed <= _today_sast()
 
 
-def _placeholder_token(text: str) -> bool:
-    """True if the summary is, or starts with, a placeholder token (any length)."""
-    folded = text.casefold()
+def _summary_tokens(text: str) -> list:
+    """Whitespace-separated tokens, punctuation stripped, case-folded."""
+    tokens = []
+    for part in text.split():
+        cleaned = part.strip('.,;:!?()[]{}\'"')
+        if cleaned:
+            tokens.append(cleaned.casefold())
+    return tokens
+
+
+def _mostly_placeholder_or_repeated(text: str) -> bool:
+    """Refuse a summary made mostly of placeholders or of repeated filler.
+
+    A genuine sentence that merely mentions one placeholder word is allowed.
+    """
+    folded = text.strip().casefold()
     if folded in PLACEHOLDER_SUMMARIES:
         return True
-    first = re.split(r"[\s:.,;/@_\-]+", folded, maxsplit=1)[0]
-    # Single-letter or two-character tokens like "x" / "na" are only
-    # placeholders when they are the entire summary.
-    if first in PLACEHOLDER_SUMMARIES and first not in {"x", "na", "n/a"}:
+    compact = re.sub(r"[^a-z0-9]+", "", folded)
+    if len(compact) >= MIN_SUMMARY_LEN and len(set(compact)) == 1:
         return True
-    return False
+    tokens = _summary_tokens(text)
+    if not tokens:
+        return False
+    if len(tokens) >= 3 and len(set(tokens)) == 1:
+        return True
+    n_ph = sum(1 for tok in tokens if tok in PLACEHOLDER_SUMMARIES)
+    # "Mostly" means at least half the tokens, and more than one placeholder,
+    # so a genuine summary that mentions a single TODO/TBD still passes.
+    return n_ph >= 2 and n_ph * 2 >= len(tokens)
 
 
 def _valid_summary(value) -> bool:
@@ -92,7 +113,7 @@ def _valid_summary(value) -> bool:
     text = value.strip()
     if not text:
         return False
-    if _placeholder_token(text):
+    if _mostly_placeholder_or_repeated(text):
         return False
     if len(text) < MIN_SUMMARY_LEN:
         return False
@@ -116,22 +137,47 @@ def flag_on(environ=None) -> bool:
 
 
 def is_daily_rel(rel) -> bool:
-    """True if a planned output path is under the /daily/ tree."""
-    text = str(rel).replace("\\", "/").lstrip("/")
-    return text == DAILY_SITE_PREFIX.rstrip("/") or text.startswith(DAILY_SITE_PREFIX)
+    """True if a planned output path is under the /daily/ tree (case-folded)."""
+    text = str(rel).replace('\\', "/").lstrip("/").casefold()
+    prefix = DAILY_SITE_PREFIX.casefold()
+    name = prefix.rstrip("/")
+    return text == name or text.startswith(prefix)
 
 
 def daily_in_rels(rels) -> bool:
     return any(is_daily_rel(rel) for rel in rels)
 
 
+def _daily_dir_entries(root: Path):
+    """Yield immediate child paths whose name is 'daily' when case-folded."""
+    root = Path(root)
+    try:
+        entries = root.iterdir()
+    except OSError:
+        return
+    for entry in entries:
+        if entry.name.casefold() == DAILY_SITE_PREFIX.casefold().rstrip("/"):
+            yield entry
+
+
 def daily_tree_present(site: Path) -> bool:
     site = Path(site)
-    daily = site / DAILY_SITE_PREFIX.rstrip("/")
-    if (daily / "index.html").is_file():
-        return True
-    if daily.is_dir():
-        return any(daily.rglob("*"))
+    for daily in _daily_dir_entries(site):
+        if daily.is_file():
+            return True
+        if not daily.is_dir():
+            continue
+        try:
+            children = list(daily.rglob("*"))
+        except OSError:
+            continue
+        if any(
+            child.is_file() and child.name.casefold() == "index.html"
+            for child in children
+        ):
+            return True
+        if children:
+            return True
     return False
 
 

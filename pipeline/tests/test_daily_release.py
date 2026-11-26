@@ -193,9 +193,26 @@ def test_rejects_too_short_summary(tmp_path):
     assert any("answer (a)" in f for f in fails)
 
 
-def test_rejects_long_placeholder_prefix_summary(tmp_path):
-    summary = "TODO additional wording to exceed thirty"
-    assert len(summary) >= 30
+def test_accepts_genuine_summary_mentioning_one_placeholder(tmp_path):
+    summary = (
+        "Keep redacted records until a request; a TODO from the owner is not "
+        "a dated summary of the retention rule."
+    )
+    assert "TODO" in summary
+    path = _write_preconditions(tmp_path, answer_a=_answer(summary=summary))
+    assert dr.check_daily_release_allowed(path=path) == []
+
+
+def test_rejects_summary_mostly_of_placeholder_tokens(tmp_path):
+    summary = "TBD TBD TBD TBD TBD TBD TBD"
+    assert len(summary) >= 24
+    path = _write_preconditions(tmp_path, answer_a=_answer(summary=summary))
+    fails = dr.check_daily_release_allowed(path=path)
+    assert any("answer (a)" in f for f in fails)
+
+
+def test_rejects_summary_of_repeated_characters(tmp_path):
+    summary = "a" * 28
     path = _write_preconditions(tmp_path, answer_a=_answer(summary=summary))
     fails = dr.check_daily_release_allowed(path=path)
     assert any("answer (a)" in f for f in fails)
@@ -278,3 +295,54 @@ def test_build_itself_refuses_daily_in_output_tree(tmp_path):
     )
     with pytest.raises(dr.DailyReleaseError, match="public-page GO"):
         bs.build(out)
+
+
+@pytest.mark.parametrize("rel", ["Daily/index.html", "DAILY/index.html", "DAILY/"])
+def test_assert_build_allowed_refuses_case_folded_daily_rels(rel):
+    with pytest.raises(dr.DailyReleaseError, match="public-page GO"):
+        dr.assert_build_allowed(flag=False, rels=[rel])
+
+
+def test_assert_build_allowed_refuses_case_folded_source_dirs(tmp_path):
+    src = tmp_path / "src"
+    (src / "Daily").mkdir(parents=True)
+    (src / "Daily" / "index.html").write_text("<html><body>src</body></html>")
+    with pytest.raises(dr.DailyReleaseError, match="public-page GO"):
+        dr.assert_build_allowed(flag=False, source_dirs=[src])
+
+
+def test_build_itself_refuses_case_folded_daily_in_output_tree(tmp_path):
+    out = tmp_path / "site"
+    (out / "DAILY").mkdir(parents=True)
+    (out / "DAILY" / "index.html").write_text(
+        "<html><body>leftover daily</body></html>", encoding="utf-8"
+    )
+    with pytest.raises(dr.DailyReleaseError, match="public-page GO"):
+        bs.build(out)
+
+
+def test_build_itself_refuses_case_folded_daily_under_assets_src(
+    tmp_path, monkeypatch
+):
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    shutil.copy(bs.ASSETS_SRC / "site.css", assets / "site.css")
+    shutil.copy(bs.ASSETS_SRC / "map.js", assets / "map.js")
+    (assets / "Daily").mkdir()
+    (assets / "Daily" / "index.html").write_text(
+        "<html><body>daily source</body></html>", encoding="utf-8"
+    )
+    monkeypatch.setattr(bs, "ASSETS_SRC", assets)
+    with pytest.raises(dr.DailyReleaseError, match="public-page GO"):
+        bs.build(tmp_path / "site")
+    assert not (tmp_path / "site" / "Daily").exists()
+    assert not (tmp_path / "site" / "daily").exists()
+
+
+def test_site_gate_refuses_case_folded_daily_tree_without_public_page_go(tmp_path):
+    site = tmp_path / "site"
+    (site / "DAILY").mkdir(parents=True)
+    (site / "DAILY" / "index.html").write_text("<html><body>daily</body></html>")
+    fails = sg.check_site(site, private_names=[])
+    assert any("public-page GO is not recorded" in f for f in fails)
+    assert any("public-page GO is not recorded" in f for f in dr.gate_fails_for_site(site))
