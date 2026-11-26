@@ -330,12 +330,12 @@ def check_site(site: Path = DEFAULT_SITE, private_names=None, indexable=None, ho
         fails.extend(scan_text(rel, text, banned, names))
         if path.suffix == ".html":
             fails.extend(check_html(site, rel, text, allowed_urls, indexable=live))
+            if sw.DISCLAIMER not in text:
+                fails.append(f"{rel}: missing required external-publication disclaimer")
         if rel == "assets/map-data.js":
             fails.extend(check_map_data(rel, text, allowed_urls))
         if rel == "assets/sweeps-data.js":
             fails.extend(check_sweeps_data(rel, text, allowed_urls))
-        if rel == "daily-sweeps/index.html" and sw.DISCLAIMER not in text:
-            fails.append(f"{rel}: missing required external-publication disclaimer")
     return fails
 
 

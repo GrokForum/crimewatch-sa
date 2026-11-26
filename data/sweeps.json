@@ -17,7 +17,7 @@
     {
       "date": "2026-11-23",
       "compiled_sast": "about 05:55 SAST",
-      "summary": "A tavern shooting in Khayelitsha was noted on the private Hub, but no fetched article URL was recorded in the operational notes, so it is not listed here.",
+      "summary": "No new official or news item with a fetched source was added on this lean morning run.",
       "items": []
     },
     {
@@ -117,7 +117,7 @@
           "kind": "x-pulse",
           "title": "X pulse, Worcester shooting",
           "place": "",
-          "summary": "A public archive search limited to approved register accounts, on the Worcester shooting, found three posts: the official @SAPoliceService manhunt notice at 12:04 SAST and two @eNCA posts. The official post and the eNCA article are the references used here; the two eNCA post URLs were not recorded in the notes and are not invented.",
+          "summary": "A public archive search limited to approved register accounts, on the Worcester shooting, found three posts: the official @SAPoliceService manhunt notice at 12:04 SAST and two @eNCA posts. The official post and the eNCA article are the references used here. Two further eNCA post URLs were not fetched and are not invented.",
           "label": "Established",
           "handles": [
             {

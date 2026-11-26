@@ -14,6 +14,14 @@ def site(tmp_path_factory):
     return bs.build(tmp_path_factory.mktemp("sweeps-site") / "site")
 
 
+@pytest.fixture
+def site_copy(site, tmp_path):
+    import shutil
+    dst = tmp_path / "site"
+    shutil.copytree(site, dst)
+    return dst
+
+
 DISCLAIMER = (
     "We are not responsible for anything published by anyone else, "
     "including personal information."
@@ -117,8 +125,19 @@ def test_daily_sweeps_page_has_controls_and_disclaimer(site):
     assert "<form" not in html.lower()
 
 
+ALL_PAGES = [
+    "index.html",
+    "heat-map/index.html",
+    "high-profile/index.html",
+    "media-gap/index.html",
+    "daily-sweeps/index.html",
+    "method/index.html",
+    "404.html",
+]
+
+
 def test_disclaimer_is_on_every_page(site):
-    for rel in ["index.html", "daily-sweeps/index.html", "method/index.html"]:
+    for rel in ALL_PAGES:
         text = (site / rel).read_text()
         assert DISCLAIMER in text, rel
 
@@ -145,3 +164,58 @@ def test_home_and_nav_link_to_daily_sweeps(site):
     home = (site / "index.html").read_text()
     assert 'href="/daily-sweeps/"' in home
     assert 'aria-current="page"' in (site / "daily-sweeps" / "index.html").read_text()
+
+def test_empty_days_use_lean_summary():
+    catalog = sweeps.load()
+    empty = [d for d in catalog["days"] if not d["items"]]
+    assert empty, "fixture should include lean days"
+    for day in empty:
+        assert day["summary"] == sweeps.LEAN_EMPTY_SUMMARY, day["date"]
+
+
+def test_empty_day_unsourced_summary_is_refused():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if not day["items"]:
+            day["summary"] = "A serious incident in a named town was reported, with no fetched source."
+            date = day["date"]
+            break
+    else:
+        raise AssertionError("no empty day in fixture")
+    fails = sweeps.validate(catalog)
+    assert any("generic lean summary" in f and date in f for f in fails), fails
+
+
+def test_process_wording_in_item_is_refused():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " This was not recorded in the notes."
+            ident = day["items"][0]["id"]
+            break
+    else:
+        raise AssertionError("no sourced day in fixture")
+    fails = sweeps.validate(catalog)
+    assert any("operational wording" in f and ident in f for f in fails), fails
+
+
+def test_gate_flags_missing_disclaimer_on_sweeps_page(site_copy):
+    path = site_copy / "daily-sweeps" / "index.html"
+    path.write_text(path.read_text().replace(DISCLAIMER, "Disclaimer removed."))
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("disclaimer" in f and "daily-sweeps" in f for f in fails), fails
+
+
+def test_gate_flags_missing_disclaimer_on_any_html_page(site_copy):
+    path = site_copy / "404.html"
+    path.write_text(path.read_text().replace(DISCLAIMER, "Disclaimer removed."))
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("disclaimer" in f and "404.html" in f for f in fails), fails
+
+
+def test_gate_flags_missing_disclaimer_in_sweeps_data(site_copy):
+    path = site_copy / "assets" / "sweeps-data.js"
+    path.write_text(path.read_text().replace(DISCLAIMER, "Disclaimer removed."))
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("disclaimer" in f and "sweeps-data" in f for f in fails), fails
+

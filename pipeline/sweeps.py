@@ -22,6 +22,19 @@ DISCLAIMER = (
     "including personal information."
 )
 
+# Empty days (no cited items) must use this wording. It does not name an
+# incident, a town, or internal working files.
+LEAN_EMPTY_SUMMARY = (
+    "No new official or news item with a fetched source was added on this lean morning run."
+)
+
+# Public catalog text must not point at internal working material.
+FORBIDDEN_PROCESS_PHRASES = (
+    "private hub",
+    "operational notes",
+    "the notes",
+)
+
 PUBLISHABLE_ROLES = frozenset({"official", "police", "media", "public-figure"})
 ITEM_KINDS = frozenset({"news", "official", "civil-society", "x-pulse"})
 HANDLE_RE = re.compile(r"^[A-Za-z0-9_]{1,15}$")
@@ -77,6 +90,13 @@ def _scan_text(label: str, text: str) -> list[str]:
         fails.append(f"{label}: email pattern")
     if PATH_RE.search(text):
         fails.append(f"{label}: local file-system path")
+    low = text.casefold()
+    for phrase in FORBIDDEN_PROCESS_PHRASES:
+        if phrase in low:
+            fails.append(
+                f"{label}: operational wording is not for the public catalog"
+            )
+            break
     return fails
 
 
@@ -209,6 +229,10 @@ def validate(catalog: dict) -> list[str]:
         if not isinstance(items, list):
             fails.append(f"{date}: items must be a list")
             continue
+        if not items and day.get("summary") and day["summary"] != LEAN_EMPTY_SUMMARY:
+            fails.append(
+                f"{date}: a day with no cited items must use the generic lean summary"
+            )
         ids = set()
         for item in items:
             if not isinstance(item, dict):

@@ -7,3 +7,4 @@
 | 20 Nov 2026 | RFC-003 | DEV (public repo, `site-v1`, publishing off) | PENDING REVIEW (pull request, not merged; no deploy) | `d232173` (`main` before this change) |
 | 20 Nov 2026 | RFC-004 | DEV (public repo, `site-v1`, publishing off) | PENDING REVIEW (same draft pull request as RFC-003, not merged; no deploy) | `86df32e0885ee5858175ba9a53676c3de3df7d6c` (`site-v1` before this change) |
 | 25 Nov 2026 | RFC-005 | DEV (local branch `rfc/005-daily-sweeps`; not pushed; no deploy) | LOCAL PROTOTYPE (pending review) | `1964ce2177eed210d393b53af9b2413b17b32ff6` (`origin/main` before this change) |
+| 26 Nov 2026 | RFC-005 | DEV (local branch `rfc/005-daily-sweeps`; not pushed; no deploy) | GO t726u item 6 recorded (backfill, search-all-days, no auto-deploy); 23 Nov lean wording; disclaimer and empty-day gates (pending review) | `1964ce2177eed210d393b53af9b2413b17b32ff6` (`origin/main` before this change) |
