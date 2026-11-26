@@ -219,3 +219,155 @@ def test_gate_flags_missing_disclaimer_in_sweeps_data(site_copy):
     fails = sg.check_site(site_copy, private_names=[])
     assert any("disclaimer" in f and "sweeps-data" in f for f in fails), fails
 
+def test_committed_catalog_has_no_minor_exact_ages():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        for item in day["items"]:
+            for part in (item.get("title"), item.get("place"), item.get("summary")):
+                assert not sweeps.MINOR_AGE_RE.search(part or ""), (item["id"], part)
+            for src in item.get("sources") or []:
+                assert not sweeps.MINOR_AGE_RE.search(src.get("title") or ""), item["id"]
+
+
+def test_minor_exact_age_is_refused():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " A 17-year-old boy was wounded."
+            ident = day["items"][0]["id"]
+            break
+    fails = sweeps.validate(catalog)
+    assert any("exact age of a person under 18" in f and ident in f for f in fails), fails
+
+
+def test_worded_minor_age_is_refused():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " A two-year-old girl was wounded."
+            ident = day["items"][0]["id"]
+            break
+    fails = sweeps.validate(catalog)
+    assert any("exact age of a person under 18" in f and ident in f for f in fails), fails
+
+
+def test_adult_exact_age_is_allowed():
+    catalog = sweeps.load()
+    # The committed Botshabelo item keeps an adult age; 18+ must pass.
+    blob = " ".join(
+        item["summary"]
+        for day in catalog["days"]
+        for item in day["items"]
+    )
+    assert "48-year-old" in blob or "21-year-old" in blob
+    assert sweeps.validate(catalog) == []
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " An 18-year-old man was arrested."
+            break
+    assert sweeps.validate(catalog) == []
+
+
+def test_publisher_url_slug_age_is_not_our_wording():
+    catalog = sweeps.load()
+    # A fetched source URL may itself contain an age in the slug.
+    assert any(
+        "2-year-old" in (src.get("url") or "")
+        for day in catalog["days"]
+        for item in day["items"]
+        for src in item.get("sources") or []
+    )
+    assert sweeps.validate(catalog) == []
+
+
+@pytest.mark.parametrize("phrase", [
+    "noted on the Hub",
+    "an operational note was filed",
+    "see the Hub",
+    "see the notes",
+    "an internal draft",
+])
+def test_process_phrase_variants_are_refused(phrase):
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += f" ({phrase}.)"
+            ident = day["items"][0]["id"]
+            break
+    fails = sweeps.validate(catalog)
+    assert any("operational wording" in f and ident in f for f in fails), (phrase, fails)
+
+
+def test_internal_affairs_wording_is_allowed():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["summary"] += " An internal affairs inquiry followed."
+            break
+    assert sweeps.validate(catalog) == []
+
+
+def test_sourced_day_summary_cannot_add_unsourced_place():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["summary"] += " A tavern shooting in Atlantis was also reported."
+            date = day["date"]
+            break
+    else:
+        raise AssertionError("no sourced day in fixture")
+    fails = sweeps.validate(catalog)
+    assert any("unsourced incident detail" in f and date in f for f in fails), fails
+
+
+def test_protected_source_flag_is_refused():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            day["items"][0]["sources"][0]["protected"] = True
+            ident = day["items"][0]["id"]
+            break
+    fails = sweeps.validate(catalog)
+    assert any("protected-post links are refused" in f and ident in f for f in fails), fails
+
+
+def test_protected_handle_status_url_is_refused():
+    catalog = sweeps.load()
+    for day in catalog["days"]:
+        if day["items"]:
+            item = day["items"][0]
+            item["handles"] = [{
+                "handle": "News24",
+                "role": "media",
+                "display": "@News24",
+                "protected": True,
+            }]
+            item["sources"] = [{
+                "title": "a protected post",
+                "url": "https://x.com/News24/status/1",
+            }]
+            ident = item["id"]
+            break
+    fails = sweeps.validate(catalog)
+    assert any("protected-post links are refused" in f and ident in f for f in fails), fails
+
+
+def test_known_protected_handle_status_url_is_refused():
+    catalog = sweeps.load()
+    handle = next(iter(sweeps.KNOWN_PROTECTED_HANDLES))
+    for day in catalog["days"]:
+        if day["items"]:
+            item = day["items"][0]
+            item["handles"] = [{
+                "handle": handle,
+                "role": "media",
+                "display": f"@{handle}",
+            }]
+            item["sources"] = [{
+                "title": "a protected post",
+                "url": f"https://x.com/{handle}/status/1",
+            }]
+            ident = item["id"]
+            break
+    fails = sweeps.validate(catalog)
+    assert any("protected-post links are refused" in f and ident in f for f in fails), fails

@@ -29,11 +29,54 @@ LEAN_EMPTY_SUMMARY = (
 )
 
 # Public catalog text must not point at internal working material.
-FORBIDDEN_PROCESS_PHRASES = (
-    "private hub",
-    "operational notes",
-    "the notes",
+# Word-boundary patterns catch variants such as "noted on the Hub",
+# "operational note", "hub", "notes" and "internal". Official uses of
+# "internal affairs" / "internal investigation" are left alone.
+_INTERNAL_OK_RE = re.compile(r"(?i)\binternal\s+(?:affairs|investigation)s?\b")
+PROCESS_RE = re.compile(
+    r"(?ix)"
+    r"\bhub\b"
+    r"|\bnotes\b"
+    r"|\binternal\b"
+    r"|\boperational\s+notes?\b"
+    r"|\bnoted\s+on\s+the\s+(?:private\s+)?hub\b"
+    r"|\bthe\s+notes\b"
+    r"|\bprivate\s+hub\b"
 )
+
+# Exact ages under 18 (numeric or words). Applied to our wording only,
+# not to an external source URL, whose slug may repeat the publisher's text.
+_MINOR_AGE_WORDS = (
+    "zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+    "eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen"
+)
+MINOR_AGE_RE = re.compile(
+    r"(?ix)(?:"
+    r"\b(?:[0-9]|1[0-7])\s*[-–]?\s*years?\s*[-–]?\s*old\b"
+    r"|\b(?:[0-9]|1[0-7])\s*years?\s+of\s+age\b"
+    r"|\baged\s+(?:[0-9]|1[0-7])\b(?!\s*[-–]\s*(?:1[8-9]|[2-9][0-9]))"
+    r"|\b(?:[0-9]|1[0-7])\s*[-–]?\s*months?\s*[-–]?\s*old\b"
+    r"|\b(?:[0-9]|1[0-7])\s*[-–]?\s*(?:yr|yrs|yo)\b"
+    r"|\b(?:" + _MINOR_AGE_WORDS + r")\s*[-–]?\s*years?\s*[-–]?\s*old\b"
+    r"|\b(?:" + _MINOR_AGE_WORDS + r")\s*years?\s+of\s+age\b"
+    r"|\baged\s+(?:" + _MINOR_AGE_WORDS + r")\b"
+    r"|\b(?:" + _MINOR_AGE_WORDS + r")\s*[-–]?\s*months?\s*[-–]?\s*old\b"
+    r")"
+)
+
+# Handles known to be protected: they may be named in a public-figure or
+# media role, but their X post links are refused.
+KNOWN_PROTECTED_HANDLES = frozenset({"wicks_jeff"})
+
+# Capitalised tokens in a day summary that do not need a matching sourced item.
+_SUMMARY_FRAMING = frozenset({
+    "day", "day-one", "edition", "november", "december", "january", "february",
+    "march", "april", "may", "june", "july", "august", "september", "october",
+    "sast", "saps", "npa", "ipid", "pmg", "q1", "q2", "q3", "q4",
+    "official", "media", "civil", "society", "pulse", "incidents", "figures",
+    "quarterly", "sources", "headline", "africa", "south",
+})
+_SUMMARY_TOKEN_RE = re.compile(r"\b[A-Z][A-Za-z0-9-]*\b")
 
 PUBLISHABLE_ROLES = frozenset({"official", "police", "media", "public-figure"})
 ITEM_KINDS = frozenset({"news", "official", "civil-society", "x-pulse"})
@@ -90,17 +133,29 @@ def _scan_text(label: str, text: str) -> list[str]:
         fails.append(f"{label}: email pattern")
     if PATH_RE.search(text):
         fails.append(f"{label}: local file-system path")
-    low = text.casefold()
-    for phrase in FORBIDDEN_PROCESS_PHRASES:
-        if phrase in low:
-            fails.append(
-                f"{label}: operational wording is not for the public catalog"
-            )
-            break
+    cleaned = _INTERNAL_OK_RE.sub(" ", text)
+    if PROCESS_RE.search(cleaned):
+        fails.append(f"{label}: operational wording is not for the public catalog")
     return fails
 
 
-def _check_x_url(url: str, allowed_handles: set[str]) -> str | None:
+def _scan_our_wording(label: str, *parts: str) -> list[str]:
+    """Age and process checks on text we wrote, not on external source URLs."""
+    fails = []
+    for part in parts:
+        if not part:
+            continue
+        if MINOR_AGE_RE.search(part):
+            fails.append(f"{label}: exact age of a person under 18")
+            break
+    text = " ".join(p for p in parts if p)
+    fails.extend(_scan_text(label, text))
+    return fails
+
+
+def _check_x_url(
+    url: str, allowed_handles: set[str], protected_handles: set[str]
+) -> str | None:
     parts = urlparse(url)
     host = (parts.hostname or "").lower()
     if host not in X_HOSTS:
@@ -115,6 +170,8 @@ def _check_x_url(url: str, allowed_handles: set[str]) -> str | None:
         return f"X URL handle is not valid: {url}"
     if handle.casefold() not in {h.casefold() for h in allowed_handles}:
         return f"X URL is not a publishable handle on this item: {url}"
+    if handle.casefold() in {h.casefold() for h in protected_handles}:
+        return f"protected-post links are refused: {url}"
     if len(segs) == 1:
         return None
     if len(segs) >= 2 and segs[1] == "status" and len(segs) >= 3 and segs[2].isdigit():
@@ -122,7 +179,9 @@ def _check_x_url(url: str, allowed_handles: set[str]) -> str | None:
     return f"X URL is not a profile or status link: {url}"
 
 
-def _check_source_url(url: str, allowed_handles: set[str], hosts: set[str]) -> list[str]:
+def _check_source_url(
+    url: str, allowed_handles: set[str], hosts: set[str], protected_handles: set[str]
+) -> list[str]:
     fails = []
     if not isinstance(url, str) or not url.startswith("https://"):
         return [f"source URL must be https: {url!r}"]
@@ -131,7 +190,7 @@ def _check_source_url(url: str, allowed_handles: set[str], hosts: set[str]) -> l
     if not host or host not in hosts:
         fails.append(f"source host is not on the reviewed list: {url}")
         return fails
-    xfail = _check_x_url(url, allowed_handles)
+    xfail = _check_x_url(url, allowed_handles, protected_handles)
     if xfail:
         fails.append(xfail)
     return fails
@@ -160,6 +219,7 @@ def _check_item(day: str, item: dict, hosts: set[str]) -> list[str]:
         fails.append(f"{label}: handles must be a list")
         handles = []
     allowed_handles = set()
+    protected_handles = set()
     for h in handles:
         if not isinstance(h, dict):
             fails.append(f"{label}: handle entry must be an object")
@@ -180,19 +240,71 @@ def _check_item(day: str, item: dict, hosts: set[str]) -> list[str]:
             # display may only be the handle, with or without @
             if str(display).lstrip("@").casefold() != handle.casefold():
                 fails.append(f"{label}: display {display!r} does not match handle {handle}")
+        if "protected" in h and h.get("protected") not in (True, False):
+            fails.append(f"{label}: handle @{handle} protected must be a boolean")
         allowed_handles.add(handle)
+        if h.get("protected") is True or handle.casefold() in {
+            x.casefold() for x in KNOWN_PROTECTED_HANDLES
+        }:
+            protected_handles.add(handle)
     sources = item.get("sources") or []
     if not isinstance(sources, list) or not sources:
         fails.append(f"{label}: every fact needs a reference (sources is empty)")
         sources = []
+    source_titles = []
     for src in sources:
         if not isinstance(src, dict) or not src.get("title") or not src.get("url"):
             fails.append(f"{label}: source must have a title and a url")
             continue
-        for msg in _check_source_url(src["url"], allowed_handles, hosts):
+        source_titles.append(src.get("title") or "")
+        if "protected" in src and src.get("protected") not in (True, False):
+            fails.append(f"{label}: source protected must be a boolean")
+        if src.get("protected") is True:
+            fails.append(f"{label}: protected-post links are refused")
+            continue
+        for msg in _check_source_url(src["url"], allowed_handles, hosts, protected_handles):
             fails.append(msg if msg.startswith(label) else f"{label}: {msg}")
-    blob = json.dumps(item, ensure_ascii=False)
-    fails.extend(_scan_text(label, blob))
+    # Scan our wording (not source URLs) for ages, PI patterns and process words.
+    fails.extend(_scan_our_wording(
+        label,
+        item.get("title") or "",
+        item.get("place") or "",
+        item.get("summary") or "",
+        *source_titles,
+        " ".join(h.get("display") or h.get("handle") or "" for h in handles if isinstance(h, dict)),
+    ))
+    # Paths, emails and process words in the serialised item, including URLs.
+    # Minor-age patterns in a publisher URL slug are not ours; _scan_text skips them.
+    fails.extend(_scan_text(label, json.dumps(item, ensure_ascii=False)))
+    return fails
+
+
+
+def _check_day_summary(date: str, summary: str, items: list) -> list[str]:
+    """Refuse unsourced incident detail in every day summary, not only empty days."""
+    fails = []
+    fails.extend(_scan_our_wording(date, summary))
+    if not items:
+        if summary != LEAN_EMPTY_SUMMARY:
+            fails.append(f"{date}: a day with no cited items must use the generic lean summary")
+        return fails
+    haystack = " ".join(
+        " ".join([
+            item.get("title") or "",
+            item.get("place") or "",
+            item.get("summary") or "",
+            " ".join(src.get("title") or "" for src in (item.get("sources") or []) if isinstance(src, dict)),
+        ])
+        for item in items
+        if isinstance(item, dict)
+    ).casefold()
+    for tok in _SUMMARY_TOKEN_RE.findall(summary):
+        key = tok.casefold()
+        if len(key) < 3 or key in _SUMMARY_FRAMING:
+            continue
+        if key not in haystack:
+            fails.append(f"{date}: day summary names unsourced incident detail")
+            break
     return fails
 
 
@@ -229,10 +341,7 @@ def validate(catalog: dict) -> list[str]:
         if not isinstance(items, list):
             fails.append(f"{date}: items must be a list")
             continue
-        if not items and day.get("summary") and day["summary"] != LEAN_EMPTY_SUMMARY:
-            fails.append(
-                f"{date}: a day with no cited items must use the generic lean summary"
-            )
+        fails.extend(_check_day_summary(date, day.get("summary") or "", items))
         ids = set()
         for item in items:
             if not isinstance(item, dict):
