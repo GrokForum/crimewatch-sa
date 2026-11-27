@@ -266,6 +266,8 @@ def test_reviewed_oxpeckers_and_wc_department_are_on_the_register(site):
     lambda a: f"<p>{a.replace('@', '&#x40;')}</p>",
     lambda a: f"<p>{a.replace('@', '&commat;')}</p>",
     lambda a: f"<p>{a.replace('@', '&amp;#64;')}</p>",
+    lambda a: f"<p>{a.replace('@', '&amp;amp;#64;')}</p>",
+    lambda a: f"<p>{a.replace('@', '&amp;amp;amp;#64;')}</p>",
     lambda a: "<p>" + a.split("@")[0] + "[at]" + a.split("@")[1].replace(".", "[dot]") + "</p>",
 ])
 def test_gate_catches_encoded_emails(site_copy, snippet):
@@ -273,6 +275,30 @@ def test_gate_catches_encoded_emails(site_copy, snippet):
     _inject(site_copy, "method/index.html", snippet(addr))
     fails = sg.check_site(site_copy, private_names=[])
     assert any("email pattern" in f for f in fails), fails
+
+
+def _amp_nested_at(depth: int) -> str:
+    """An '@' hidden behind `depth` HTML-entity unescapes (depth 1 is &#64;)."""
+    return "&" + "amp;" * (depth - 1) + "#64;"
+
+
+def test_gate_handles_stable_8_deep_entity_nest(site_copy):
+    addr_left, addr_right = "someone", "example.org"
+    _inject(site_copy, "method/index.html", "<p>" + addr_left + _amp_nested_at(8) + addr_right + "</p>")
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("email pattern" in f for f in fails), fails
+    assert not any("still changing" in f for f in fails), fails
+
+
+def test_gate_fails_closed_on_9_deep_entity_nest(site_copy):
+    addr_left, addr_right = "someone", "example.org"
+    _inject(site_copy, "method/index.html", "<p>" + addr_left + _amp_nested_at(9) + addr_right + "</p>")
+    try:
+        fails = sg.check_site(site_copy, private_names=[])
+    except sg.GateError as exc:
+        assert "still changing" in str(exc) and "8" in str(exc)
+        return
+    assert any("still changing" in f for f in fails), fails
 
 
 @pytest.mark.parametrize("wrap", ["template", "textarea", "noscript"])
@@ -357,3 +383,37 @@ def test_missing_private_names_file_exits_cleanly(site, monkeypatch, capsys):
     assert "FAIL" in text
     assert "not found" in text
     assert "Traceback" not in text
+
+
+@pytest.mark.parametrize("left, right", [
+    ("\u200b", ""),
+    ("", "\u200c"),
+    ("\u200d", "\u2060"),
+    ("\ufeff", ""),
+    ("\u00ad", "\u200b"),
+])
+def test_gate_catches_zero_width_around_at(site_copy, left, right):
+    local, domain = "someone", "example.org"
+    _inject(site_copy, "method/index.html", "<p>" + local + left + "@" + right + domain + "</p>")
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("email pattern" in f for f in fails), fails
+
+
+def test_gate_catches_format_and_joiner_chars_around_at(site_copy):
+    local, domain = "someone", "example.org"
+    hidden = (
+        local
+        + "\u180e"
+        + "\u2061"
+        + "\u2062"
+        + "\u2063"
+        + "\u2064"
+        + "@"
+        + "\u200e"
+        + "\u2066"
+        + "\u034f"
+        + domain
+    )
+    _inject(site_copy, "method/index.html", "<p>" + hidden + "</p>")
+    fails = sg.check_site(site_copy, private_names=[])
+    assert any("email pattern" in f for f in fails), fails
