@@ -34,6 +34,7 @@ from urllib.parse import unquote
 
 import build_site as bs
 import site_content as C
+import sweeps as sw
 from popia_gate import ID_RE, PHONE_RE
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -41,7 +42,8 @@ DEFAULT_SITE = ROOT / "build" / "site"
 BANNED_HASHES_FILE = Path(__file__).resolve().parent / "banned_terms.sha256"
 
 REQUIRED_PAGES = ["index.html", "heat-map/index.html", "high-profile/index.html",
-                  "media-gap/index.html", "method/index.html", "robots.txt"]
+                  "media-gap/index.html", "daily-sweeps/index.html",
+                  "method/index.html", "robots.txt"]
 TEXT_SUFFIXES = {".html", ".js", ".css", ".json", ".txt"}
 
 HIDDEN_TAGS = ("template", "textarea", "noscript", "script", "style")
@@ -320,7 +322,8 @@ def check_site(site: Path = DEFAULT_SITE, private_names=None, indexable=None, ho
     live = bs.resolve_indexable(indexable, host)
     banned = load_banned_hashes()
     names = load_private_names() if private_names is None else private_names
-    allowed_urls = {u for _t, u, _k in C.SOURCES.values()}
+    catalog = sw.load()
+    allowed_urls = {u for _t, u, _k in C.SOURCES.values()} | sw.citation_urls(catalog)
     fails = []
     for req in REQUIRED_PAGES:
         if not (site / req).is_file():
@@ -346,9 +349,34 @@ def check_site(site: Path = DEFAULT_SITE, private_names=None, indexable=None, ho
         fails.extend(scan_text(rel, text, banned, names))
         if path.suffix == ".html":
             fails.extend(check_html(site, rel, text, allowed_urls, indexable=live))
+            if sw.DISCLAIMER not in text:
+                fails.append(f"{rel}: missing required external-publication disclaimer")
         if rel == "assets/map-data.js":
             fails.extend(check_map_data(rel, text, allowed_urls))
+        if rel == "assets/sweeps-data.js":
+            fails.extend(check_sweeps_data(rel, text, allowed_urls))
     return fails
+
+
+def check_sweeps_data(rel: str, text: str, allowed_urls: set) -> list:
+    prefix = "window.CW_SWEEPS = "
+    if not text.startswith(prefix):
+        return [f"{rel}: unexpected sweeps data wrapper"]
+    try:
+        json.loads(text[len(prefix):].rstrip().rstrip(";"))
+    except ValueError as exc:
+        return [f"{rel}: sweeps data not valid JSON ({exc})"]
+    fails = []
+    for url in re.findall(r"https?://[^\s\"\']+", text):
+        if url not in allowed_urls:
+            fails.append(f"{rel}: URL is not a reviewed sweep citation: {url}")
+    if sw_disclaimer_missing(text):
+        fails.append(f"{rel}: missing required external-publication disclaimer")
+    return fails
+
+
+def sw_disclaimer_missing(text: str) -> bool:
+    return sw.DISCLAIMER not in text
 
 
 def main(argv):

@@ -13,7 +13,7 @@ import site_gate as sg
 
 ROOT = bs.ROOT
 PAGES = ["index.html", "heat-map/index.html", "high-profile/index.html",
-         "media-gap/index.html", "method/index.html"]
+         "media-gap/index.html", "daily-sweeps/index.html", "method/index.html"]
 # Official SAPS Q2 2026/27 ratios per 100,000 (PDF slides 21 and 43): murder, rape.
 OFFICIAL_RATIOS = {
     "Eastern Cape": (16.2, 23.3), "Free State": (6.6, 20.9), "Gauteng": (8.1, 10.1),
@@ -40,7 +40,7 @@ def map_data(site):
 
 
 def test_pages_exist(site):
-    for rel in PAGES + ["404.html", "robots.txt", "assets/site.css", "assets/map.js", "assets/map-data.js", "manifest.json"]:
+    for rel in PAGES + ["404.html", "robots.txt", "assets/site.css", "assets/map.js", "assets/map-data.js", "assets/sweeps.js", "assets/sweeps-data.js", "manifest.json"]:
         assert (site / rel).is_file(), rel
 
 
@@ -111,7 +111,8 @@ def test_district_disputes_shipped(site):
 
 
 def test_all_external_links_are_on_the_source_register(site):
-    allowed = {u for _t, u, _k in C.SOURCES.values()}
+    import sweeps
+    allowed = {u for _t, u, _k in C.SOURCES.values()} | sweeps.citation_urls(sweeps.load())
     for rel in PAGES:
         for href in re.findall(r'href="(https?://[^"]+)"', (site / rel).read_text()):
             assert href.replace("&amp;", "&") in allowed, (rel, href)
