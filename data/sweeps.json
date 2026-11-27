@@ -5,14 +5,14 @@
     {
       "date": "2026-11-27",
       "compiled_sast": "about 05:55 SAST",
-      "summary": "Parliament’s Police Committee said detectives met 40% of their targets in the first half of 2026/27, with about 300 dockets for each station detective. No headline quarterly figure changed.",
+      "summary": "Parliament’s Police Committee said detectives met 40% of their targets in the first and second quarter performance reports, with about 300 dockets for each station detective. No headline quarterly figure changed.",
       "items": [
         {
           "id": "2026-11-27-detectives-committee",
           "kind": "official",
           "title": "Police Committee on detective performance",
           "place": "South Africa",
-          "summary": "On 26 November 2026, Parliament’s Portfolio Committee on Police said SAPS detectives met 40% of their targets in the first half of 2026/27, and that each station detective carries about 300 dockets. The committee also said the Forensic Science Laboratory had not reduced the number of exhibits past the 90-day processing period. This is the committee’s account of the department’s performance reports, not a quarterly crime total.",
+          "summary": "On 26 November 2026, Parliament’s Portfolio Committee on Police said SAPS detectives met 40% of their targets in the first and second quarter performance reports, and that each station detective carries about 300 dockets. The committee also said the Forensic Science Laboratory had not reduced the number of exhibits past the 90-day processing period. This is the committee’s account of the department’s performance reports, not a quarterly crime total.",
           "label": "Established",
           "handles": [],
           "sources": [
@@ -87,11 +87,11 @@
       "summary": "A court postponement in a sexual-offences case against a senior police official, and a Hawks laboratory raid in Esikhawini, were added from media sources. No headline quarterly figure changed.",
       "items": [
         {
-          "id": "2026-11-25-sibiya",
+          "id": "2026-11-25-senior-police-official",
           "kind": "news",
           "title": "Sexual-offences case postponed",
           "place": "Randburg, Gauteng",
-          "summary": "The Randburg Magistrate’s Court postponed the sexual-offences case against former deputy national police commissioner Shadrack Sibiya to 9 February 2027 for further investigation. The charges are Alleged. No private complainant is named here.",
+          "summary": "The Randburg Magistrate’s Court postponed the sexual-offences case against a senior police official to 9 February 2027 for further investigation. The charges are Alleged. No private complainant is named here.",
           "label": "Alleged",
           "handles": [],
           "sources": [

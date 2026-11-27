@@ -546,23 +546,26 @@ def test_backfilled_sweep_days_have_cited_items():
     catalog = sweeps.load()
     by_date = {d["date"]: d for d in catalog["days"]}
     expected = {
-        "2026-11-21": {"2026-11-21-van-rooyens-gate"},
-        "2026-11-23": {"2026-11-23-khayelitsha"},
-        "2026-11-25": {"2026-11-25-sibiya", "2026-11-25-esikhawini-lab"},
-        "2026-11-26": {"2026-11-26-mkhwanazi-hawks", "2026-11-26-amaoti"},
-        "2026-11-27": {"2026-11-27-detectives-committee"},
+        "2026-11-21": {"2026-11-21-van-rooyens-gate": "Alleged"},
+        "2026-11-23": {"2026-11-23-khayelitsha": "Established"},
+        "2026-11-25": {
+            "2026-11-25-senior-police-official": "Alleged",
+            "2026-11-25-esikhawini-lab": "Established",
+        },
+        "2026-11-26": {
+            "2026-11-26-mkhwanazi-hawks": "Established",
+            "2026-11-26-amaoti": "Established",
+        },
+        "2026-11-27": {"2026-11-27-detectives-committee": "Established"},
     }
-    for date, ids in expected.items():
+    for date, wanted in expected.items():
         assert date in by_date, date
-        got = {item["id"] for item in by_date[date]["items"]}
-        missing = ids - got
+        got = {item["id"]: item for item in by_date[date]["items"]}
+        missing = set(wanted) - set(got)
         assert not missing, (date, missing)
-        for item in by_date[date]["items"]:
-            if item["id"] in ids:
-                assert item["sources"], item["id"]
-                assert item["label"] in {
-                    "Proven", "Established", "Alleged", "Disputed", "Not established"
-                }
+        for ident, label in wanted.items():
+            assert got[ident]["sources"], ident
+            assert got[ident]["label"] == label, (ident, got[ident]["label"])
     for date in ("2026-11-22", "2026-11-24"):
         assert by_date[date]["items"] == []
         assert by_date[date]["summary"] == sweeps.LEAN_EMPTY_SUMMARY
