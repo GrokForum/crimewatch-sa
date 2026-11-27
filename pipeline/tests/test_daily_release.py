@@ -248,8 +248,10 @@ def test_build_itself_refuses_daily_source_without_public_page_go(
 ):
     assets = tmp_path / "assets"
     assets.mkdir()
-    shutil.copy(bs.ASSETS_SRC / "site.css", assets / "site.css")
-    shutil.copy(bs.ASSETS_SRC / "map.js", assets / "map.js")
+    # Every asset build() copies from ASSETS_SRC must be present so the
+    # hook is reached; a missing file must not mask the /daily/ refusal.
+    for name in ("site.css", "map.js", "sweeps.js"):
+        shutil.copy(bs.ASSETS_SRC / name, assets / name)
     (assets / "daily").mkdir()
     (assets / "daily" / "index.html").write_text(
         "<html><body>daily source</body></html>", encoding="utf-8"
@@ -326,8 +328,8 @@ def test_build_itself_refuses_case_folded_daily_under_assets_src(
 ):
     assets = tmp_path / "assets"
     assets.mkdir()
-    shutil.copy(bs.ASSETS_SRC / "site.css", assets / "site.css")
-    shutil.copy(bs.ASSETS_SRC / "map.js", assets / "map.js")
+    for name in ("site.css", "map.js", "sweeps.js"):
+        shutil.copy(bs.ASSETS_SRC / name, assets / name)
     (assets / "Daily").mkdir()
     (assets / "Daily" / "index.html").write_text(
         "<html><body>daily source</body></html>", encoding="utf-8"
