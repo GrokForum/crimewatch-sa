@@ -540,3 +540,29 @@ def test_community_hub_separator_variants_are_allowed():
         else:
             raise AssertionError("no sourced day in fixture")
         assert sweeps.validate(catalog) == [], ascii(sep)
+
+
+def test_backfilled_sweep_days_have_cited_items():
+    catalog = sweeps.load()
+    by_date = {d["date"]: d for d in catalog["days"]}
+    expected = {
+        "2026-11-21": {"2026-11-21-van-rooyens-gate"},
+        "2026-11-23": {"2026-11-23-khayelitsha"},
+        "2026-11-25": {"2026-11-25-sibiya", "2026-11-25-esikhawini-lab"},
+        "2026-11-26": {"2026-11-26-mkhwanazi-hawks", "2026-11-26-amaoti"},
+        "2026-11-27": {"2026-11-27-detectives-committee"},
+    }
+    for date, ids in expected.items():
+        assert date in by_date, date
+        got = {item["id"] for item in by_date[date]["items"]}
+        missing = ids - got
+        assert not missing, (date, missing)
+        for item in by_date[date]["items"]:
+            if item["id"] in ids:
+                assert item["sources"], item["id"]
+                assert item["label"] in {
+                    "Proven", "Established", "Alleged", "Disputed", "Not established"
+                }
+    for date in ("2026-11-22", "2026-11-24"):
+        assert by_date[date]["items"] == []
+        assert by_date[date]["summary"] == sweeps.LEAN_EMPTY_SUMMARY

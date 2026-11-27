@@ -105,6 +105,8 @@ EXTRA_SWEEP_HOSTS = frozenset({
     "www.x.com",
     "twitter.com",
     "www.twitter.com",
+    "parliament.gov.za",
+    "www.parliament.gov.za",
 })
 
 
