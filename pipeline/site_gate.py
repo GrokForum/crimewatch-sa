@@ -63,10 +63,29 @@ class GateError(Exception):
     pass
 
 
+# Format characters (Unicode category Cf), plus two that may not be Cf in
+# every Unicode version: U+034F (combining grapheme joiner, usually Mn) and
+# U+180E (Mongolian vowel separator).
+_STRIP_ALWAYS = frozenset("͏᠎")
+UNESCAPE_CAP = 8
+
+
 def decode_obfuscation(text: str) -> str:
     """Turn HTML-entity, nested-entity, mailto percent-encoding and [at]/[dot] forms into plain text."""
     t = unicodedata.normalize("NFKC", text)
-    t = html_lib.unescape(html_lib.unescape(t))
+    for _ in range(UNESCAPE_CAP):
+        nxt = html_lib.unescape(t)
+        if nxt == t:
+            break
+        t = nxt
+    else:
+        # Still changing after the cap: fail closed rather than silently
+        # leaving a deeper nest (e.g. 9-deep) only partly decoded.
+        if html_lib.unescape(t) != t:
+            raise GateError(
+                f"HTML entities still changing after {UNESCAPE_CAP} unescape passes"
+            )
+    t = "".join(ch for ch in t if ch not in _STRIP_ALWAYS and unicodedata.category(ch) != "Cf")
 
     def unq(m):
         return "mailto:" + unquote(unquote(m.group(1)))
