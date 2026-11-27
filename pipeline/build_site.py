@@ -7,7 +7,7 @@ requests. By default every page carries a robots noindex meta, a visible DRAFT
 banner, and robots.txt Disallow: /. Indexing is a deploy-time opt-in only:
 CW_INDEXABLE=1 and CW_SITE_HOST=crimewatch.grokforum.site must both be set;
 any other host is refused. The opt-in is never set in CI. Nothing here deploys
-or publishes.
+or publishes. The daily register flag (CW_DAILY_REGISTER) defaults to off. A flag-on build, or a public /daily/ build, is refused unless answers (a) and (b) and a public-page GO are all recorded in pipeline/daily_preconditions.json.
 """
 import hashlib
 import html
@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import daily_release as dr
 import site_content as C
 import sweeps
 
@@ -405,14 +406,17 @@ def not_found_page(indexable=False):
 
 # ---------------------------------------------------------------- build
 def build(out: Path = DEFAULT_OUT, indexable=None, host=None) -> Path:
+    # Flag defaults off. A flag-on or /daily/ build is refused without (a), (b)
+    # and a recorded public-page GO (RFC-006 §11). The public-page GO is not
+    # recorded yet, so a flag-on or /daily/ build currently fails closed.
+    # The hook inspects planned rels, the output tree, and source assets
+    # itself so a /daily/ path cannot be written if the caller omits args.
     live = resolve_indexable(indexable, host)
     catalog = sweeps.load()
     sweep_payload = sweeps.payload(catalog)
     long_df, stations, districts, pop, geo = load_frames()
     payload = map_payload(long_df, stations, districts, pop)
     paths, viewbox = project_paths(geo)
-    if out.exists():
-        shutil.rmtree(out)
     robots = "User-agent: *\nAllow: /\n" if live else "User-agent: *\nDisallow: /\n"
     files = {
         "index.html": home_page(indexable=live),
@@ -428,6 +432,12 @@ def build(out: Path = DEFAULT_OUT, indexable=None, host=None) -> Path:
     }
     for name in ("site.css", "map.js", "sweeps.js"):
         files[f"assets/{name}"] = (ASSETS_SRC / name).read_text()
+    # Detect /daily/ in planned rels, leftover output, and ASSETS_SRC
+    # separately. A source-tree daily page is not copied into `files` before
+    # this check, so the source_dirs=[ASSETS_SRC] arm is what catches it.
+    dr.assert_build_allowed(rels=files, out=out, source_dirs=[ASSETS_SRC])
+    if out.exists():
+        shutil.rmtree(out)
     for rel, text in files.items():
         p = out / rel
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -441,7 +451,7 @@ def main(argv):
     out = Path(argv[1]) if len(argv) > 1 else DEFAULT_OUT
     try:
         build(out)
-    except (ContentError, FileNotFoundError, KeyError, ValueError) as exc:
+    except (ContentError, FileNotFoundError, KeyError, ValueError, dr.DailyReleaseError) as exc:
         print(f"FAIL site build: {exc}", file=sys.stderr)
         return 1
     print(f"site built -> {out}")

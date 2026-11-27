@@ -19,7 +19,10 @@ Fails closed (exit 1) if any generated file:
     excluded incident aggregate, or a name from the optional private names
     list (path in env CW_PRIVATE_NAMES_FILE, kept outside the repository);
   - ships map data with keys outside the reviewed schema, or a source URL
-    whose host is not on the reviewed source register.
+    whose host is not on the reviewed source register;
+  - turns the daily register flag on, or ships a /daily/ tree, unless
+    answers (a) and (b) and a public-page GO are all recorded
+    (pipeline/daily_preconditions.json).
 """
 import hashlib
 import html as html_lib
@@ -33,6 +36,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 import build_site as bs
+import daily_release as dr
 import site_content as C
 import sweeps as sw
 from popia_gate import ID_RE, PHONE_RE
@@ -325,6 +329,7 @@ def check_site(site: Path = DEFAULT_SITE, private_names=None, indexable=None, ho
     catalog = sw.load()
     allowed_urls = {u for _t, u, _k in C.SOURCES.values()} | sw.citation_urls(catalog)
     fails = []
+    fails.extend(dr.gate_fails_for_site(site))
     for req in REQUIRED_PAGES:
         if not (site / req).is_file():
             fails.append(f"missing required file: {req}")
