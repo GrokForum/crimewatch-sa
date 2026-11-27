@@ -225,6 +225,11 @@ METHOD_RULES = [
 
 METHOD_POPIA = [
     "Private victims and suspects appear only as totals. No names, addresses, phone numbers or photographs of private people.",
+    "On our own pages, private people are masked or described anonymously, for example “a farmer and his wife”.",
+    "We may link to an external site that itself exposes personal information. The exposure is theirs, and we only report, mask and reference.",
+    "Every fact has a reference.",
+    "We are not responsible for anything published by anyone else, including personal information.",
+    "Public figures, officials, police and media accounts can be named.",
     "Maps and tables go no finer than a police station: province, police district and station only, never a street, farm or victim location.",
     "Incident-level farm-attack lists are not published here; the site uses official counts and civil-society register totals only.",
     "Public officials appear only in their public role.",
