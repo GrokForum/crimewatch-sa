@@ -5,29 +5,29 @@
     {
       "date": "2026-11-28",
       "compiled_sast": "about 06:00 SAST",
-      "summary": "Cabinet’s 27 November statement repeated the official second-quarter changes, matching the SAPS figures already published. Former SARS commissioner Edward Kieswetter told the Madlanga Commission that more than 80 illicit-tobacco cases show no clear prosecution progress. No headline quarterly figure changed.",
+      "summary": "A Cabinet statement issued on 27 November about the 25 November meeting repeated official second-quarter changes; the murder decline of 3.5% is already on the published pages of this site. Former SARS commissioner Edward Kieswetter told the Madlanga Commission that 80 illicit-tobacco cases were handed to the NPA in 2025/26, with no progress to his knowledge. No headline quarterly figure changed.",
       "items": [
         {
           "id": "2026-11-28-cabinet-q2",
           "kind": "official",
           "title": "Cabinet statement on second-quarter crime statistics",
           "place": "South Africa",
-          "summary": "In its statement on the 27 November 2026 meeting, Cabinet said murders declined by 3.5% between 1 July and 30 September 2026 compared with the same period in 2025, truck hijackings dropped by 27.9%, and robberies at residences and businesses each declined by 7%. These are the SAPS counts of recorded crime as Cabinet quoted them, and they match the official figures already on this site.",
+          "summary": "In a statement issued on 27 November 2026 about the 25 November Cabinet meeting, Cabinet said murders declined by 3.5% between 1 July and 30 September 2026 compared with the same period in 2025, truck hijackings dropped by 27.9%, and robberies at residences and businesses both declined by 7%. These are the SAPS counts of recorded crime as Cabinet quoted them. The murder decline of 3.5% is already on the published pages of this site. The truck-hijacking and robbery figures Cabinet quoted are official SAPS counts, but they are not shown on the published pages.",
           "label": "Proven",
           "handles": [],
           "sources": [
             {
               "title": "South African Government",
-              "url": "https://www.gov.za/news/cabinet-statements/media-briefings/statement-cabinet-meeting-wednesday-27-november-2026-27-nov"
+              "url": "https://www.gov.za/news/cabinet-statements/media-briefings/statement-cabinet-meeting-wednesday-25-november-2026-27-nov"
             }
           ]
         },
         {
           "id": "2026-11-28-kieswetter-commission",
-          "kind": "official",
+          "kind": "news",
           "title": "Madlanga Commission hears evidence on illicit-tobacco cases",
           "place": "South Africa",
-          "summary": "On 25 November 2026, former SARS commissioner Edward Kieswetter told the Madlanga Commission there is a gap between SARS, the police, the Hawks and the NPA, citing more than 80 illicit-tobacco cases with no clear prosecution progress. He argued that the state should follow the money and freeze assets, not only make arrests. This is testimony to a commission and has not been tested.",
+          "summary": "On 25 November 2026, former SARS commissioner Edward Kieswetter told the Madlanga Commission there is a gap between SARS, the police, the Hawks and the NPA. He pointed to more than 80 SARS investigations into illicit-tobacco syndicates, and said that in 2025/26 SARS handed 80 illicit-tobacco cases to the NPA, “with no progress to my knowledge.” He argued that the state should follow the money and freeze assets, not only make arrests. This is testimony to a commission and has not been tested.",
           "label": "Alleged",
           "handles": [],
           "sources": [
