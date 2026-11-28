@@ -54,6 +54,11 @@ SOURCES = {
     "methodology": ("MediaWatch SA methodology (docs/METHODOLOGY.md)", "https://github.com/GrokForum/mediawatch-sa/blob/main/docs/METHODOLOGY.md", "Method"),
     "natural_earth": ("Natural Earth admin-1 boundaries, v5.1.2 (public domain)", "https://www.naturalearthdata.com/about/terms-of-use/", "Map data"),
     "repo": ("CrimeWatch SA repository (code, data and issues)", "https://github.com/GrokForum/crimewatch-sa", "Repository"),
+    "watch_directory": (
+        "GrokForum Watch directory",
+        "https://watch.grokforum.site/",
+        "Watch directory",
+    ),
     "oxpeckers": (
         "Oxpeckers, wildlife and environmental crime investigations (claims only, labelled Alleged; wildlife only. Where a story publishes a primary document, cite that document)",
         "https://oxpeckers.org/",

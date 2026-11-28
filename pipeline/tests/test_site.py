@@ -247,6 +247,20 @@ def test_privacy_contact_is_present(site):
     assert addr in (site / "method" / "index.html").read_text()
 
 
+def test_every_html_page_has_watch_directory_backlink(site):
+    href = 'href="https://watch.grokforum.site/"'
+    text = "Part of the Watch network — watch.grokforum.site"
+    assert C.SOURCES["watch_directory"][1] == "https://watch.grokforum.site/"
+    assert C.SOURCES["watch_directory"][2] == "Watch directory"
+    pages = sorted(site.rglob("*.html"))
+    assert pages, "expected built HTML pages"
+    for path in pages:
+        html = path.read_text(encoding="utf-8")
+        assert href in html, path
+        assert text in html, path
+        assert 'href="https://watch.grokforum.site/?' not in html, path
+
+
 def test_reviewed_oxpeckers_and_wc_department_are_on_the_register(site):
     assert "oxpeckers" in C.SOURCES
     assert C.SOURCES["oxpeckers"][1] == "https://oxpeckers.org/"
