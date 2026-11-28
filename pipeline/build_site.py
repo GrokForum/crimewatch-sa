@@ -146,7 +146,8 @@ def page(path: str, title: str, body: str, scripts=(), indexable: bool = False) 
 </main>
 <footer><p>Fact labels: Proven, Established, Alleged, Disputed, Not established (<a href="{e(C.SOURCES['methodology'][1])}" rel="noopener noreferrer">MediaWatch SA methodology</a>). Code, data and public issues: <a href="{e(C.SOURCES['repo'][1])}" rel="noopener noreferrer">GrokForum/crimewatch-sa</a>. Map boundaries made with Natural Earth.</p>
 <p>Privacy contact: <a href="mailto:{PRIVACY_EMAIL}">{PRIVACY_EMAIL}</a>.</p>
-<p class="disclaimer">{e(sweeps.DISCLAIMER)}</p></footer>
+<p class="disclaimer">{e(sweeps.DISCLAIMER)}</p>
+<p><a href="{e(C.SOURCES['watch_directory'][1])}" rel="noopener noreferrer">Part of the Watch network — watch.grokforum.site</a></p></footer>
 </body>
 </html>
 """
