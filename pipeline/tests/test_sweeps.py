@@ -557,6 +557,10 @@ def test_backfilled_sweep_days_have_cited_items():
             "2026-11-26-amaoti": "Established",
         },
         "2026-11-27": {"2026-11-27-detectives-committee": "Established"},
+        "2026-11-28": {
+            "2026-11-28-cabinet-q2": "Proven",
+            "2026-11-28-kieswetter-commission": "Alleged",
+        },
     }
     for date, wanted in expected.items():
         assert date in by_date, date
