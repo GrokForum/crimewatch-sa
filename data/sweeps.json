@@ -3,10 +3,134 @@
   "disclaimer": "We are not responsible for anything published by anyone else, including personal information.",
   "days": [
     {
+      "date": "2026-11-27",
+      "compiled_sast": "about 05:55 SAST",
+      "summary": "Parliament’s Police Committee said detectives met 40% of their targets in the first and second quarter performance reports, with about 300 dockets for each station detective. No headline quarterly figure changed.",
+      "items": [
+        {
+          "id": "2026-11-27-detectives-committee",
+          "kind": "official",
+          "title": "Police Committee on detective performance",
+          "place": "South Africa",
+          "summary": "On 26 November 2026, Parliament’s Portfolio Committee on Police said SAPS detectives met 40% of their targets in the first and second quarter performance reports, and that each station detective carries about 300 dockets. The committee also said the Forensic Science Laboratory had not reduced the number of exhibits past the 90-day processing period. This is the committee’s account of the department’s performance reports, not a quarterly crime total.",
+          "label": "Established",
+          "handles": [],
+          "sources": [
+            {
+              "title": "Parliament of South Africa",
+              "url": "https://www.parliament.gov.za/news/police-committee-concerned-detectives-achieve-only-40-performance-targets"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "date": "2026-11-26",
+      "compiled_sast": "about 05:55 SAST",
+      "summary": "Cabinet concurrence for a new Hawks head, and a police account of a shooting in Inanda, were added from media sources. No headline quarterly figure changed.",
+      "items": [
+        {
+          "id": "2026-11-26-mkhwanazi-hawks",
+          "kind": "official",
+          "title": "Cabinet backs a new Hawks head",
+          "place": "South Africa",
+          "summary": "Acting Police Minister Firoz Cachalia told Parliament on 25 November 2026 that Cabinet had concurred with his proposal to appoint Lieutenant-General Nhlanhla Mkhwanazi as national head of the Hawks (the Directorate for Priority Crime Investigation). At the time of this edition, the formal appointment and start date had not been issued.",
+          "label": "Established",
+          "handles": [
+            {
+              "handle": "ewnupdates",
+              "role": "media",
+              "display": "@ewnupdates"
+            }
+          ],
+          "sources": [
+            {
+              "title": "Eyewitness News",
+              "url": "https://www.ewn.co.za/2026/11/25/cabinet-approves-cachalias-proposal-to-name-nhlanhla-mkhwanazi-as-hawks-head"
+            },
+            {
+              "title": "News24",
+              "url": "https://www.news24.com/southafrica/crime-and-courts/cabinet-backs-mkhwanazi-to-lead-the-hawks-20261125-1144"
+            }
+          ]
+        },
+        {
+          "id": "2026-11-26-amaoti",
+          "kind": "news",
+          "title": "Police account of a shooting in Inanda",
+          "place": "Amaoti, Inanda, KwaZulu-Natal",
+          "summary": "KwaZulu-Natal police said that on 25 November 2026, three people they described as wanted suspects were shot dead in a confrontation with police in Amaoti, Inanda. Police said officers were not injured and two firearms were recovered. The deceased were not named. This is the police account.",
+          "label": "Established",
+          "handles": [
+            {
+              "handle": "IOL",
+              "role": "media",
+              "display": "@IOL"
+            }
+          ],
+          "sources": [
+            {
+              "title": "TimesLIVE",
+              "url": "https://www.timeslive.co.za/news/south-africa/2026-11-25-police-kill-three-suspects-in-shootout-in-inanda/"
+            },
+            {
+              "title": "IOL",
+              "url": "https://iol.co.za/news/crime-and-courts/2026-11-25-three-suspects-shot-dead-in-inanda-shootout-with-police/"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "date": "2026-11-25",
       "compiled_sast": "about 05:55 SAST",
-      "summary": "No new official or news item with a fetched source was added on this lean morning run.",
-      "items": []
+      "summary": "A court postponement in a sexual-offences case against a senior police official, and a Hawks laboratory raid in Esikhawini, were added from media sources. No headline quarterly figure changed.",
+      "items": [
+        {
+          "id": "2026-11-25-senior-police-official",
+          "kind": "news",
+          "title": "Sexual-offences case postponed",
+          "place": "Randburg, Gauteng",
+          "summary": "The Randburg Magistrate’s Court postponed the sexual-offences case against a senior police official to 9 February 2027 for further investigation. The charges are Alleged. No private complainant is named here.",
+          "label": "Alleged",
+          "handles": [],
+          "sources": [
+            {
+              "title": "Mail & Guardian",
+              "url": "https://mg.co.za/news/south-africa/2026-11-24-sibiya-sexual-offences-case-postponed-to-allow-investigators-to-reconstruct-hotel-scene/"
+            },
+            {
+              "title": "SABC News",
+              "url": "https://www.sabcnews.com/sabcnews/shadrack-sibiyas-case-postponed-as-police-await-phone-data-report/"
+            }
+          ]
+        },
+        {
+          "id": "2026-11-25-esikhawini-lab",
+          "kind": "news",
+          "title": "Hawks close a Mandrax laboratory in Esikhawini",
+          "place": "Esikhawini, KwaZulu-Natal",
+          "summary": "The Hawks said they dismantled a Mandrax laboratory in Esikhawini, near Richards Bay, on 24 November 2026 and arrested one man. The arrested person is not named here. This is the Hawks’ account.",
+          "label": "Established",
+          "handles": [
+            {
+              "handle": "IOL",
+              "role": "media",
+              "display": "@IOL"
+            }
+          ],
+          "sources": [
+            {
+              "title": "IOL",
+              "url": "https://iol.co.za/news/crime-and-courts/2026-11-24-hawks-bust-multi-million-rand-drug-lab-in-kzn-arrest-50-year-old-suspect/"
+            },
+            {
+              "title": "News24",
+              "url": "https://www.news24.com/southafrica/crime-and-courts/hawks-dismantle-multimillion-rand-mandrax-lab-in-esikhawini-arrest-50-year-old-man-20261124-1198"
+            }
+          ]
+        }
+      ]
     },
     {
       "date": "2026-11-24",
@@ -17,8 +141,34 @@
     {
       "date": "2026-11-23",
       "compiled_sast": "about 05:55 SAST",
-      "summary": "No new official or news item with a fetched source was added on this lean morning run.",
-      "items": []
+      "summary": "A tavern shooting in Khayelitsha was added from media sources. No headline quarterly figure changed.",
+      "items": [
+        {
+          "id": "2026-11-23-khayelitsha",
+          "kind": "news",
+          "title": "Tavern shooting in Khayelitsha",
+          "place": "Khayelitsha, Western Cape",
+          "summary": "At about 23:30 SAST on 21 November 2026, four men were killed and five people were wounded in a tavern shooting in Khayelitsha. Police opened murder and attempted-murder cases. No arrests had been announced. Identities were not released. Motive Not established.",
+          "label": "Established",
+          "handles": [
+            {
+              "handle": "eNCA",
+              "role": "media",
+              "display": "@eNCA"
+            }
+          ],
+          "sources": [
+            {
+              "title": "TimesLIVE",
+              "url": "https://www.timeslive.co.za/news/south-africa/2026-11-22-four-people-killed-five-wounded-in-khayelitsha-tavern-shooting/"
+            },
+            {
+              "title": "eNCA",
+              "url": "https://www.enca.com/news-top-stories/four-killed-khayelitsha-tavern-shooting"
+            }
+          ]
+        }
+      ]
     },
     {
       "date": "2026-11-22",
@@ -29,8 +179,27 @@
     {
       "date": "2026-11-21",
       "compiled_sast": "about 17:25 SAST",
-      "summary": "A shooting in Worcester, an official update on cash-in-transit arrests, and a school killing in Mhluzi were added from official and media sources. No headline quarterly figure changed.",
+      "summary": "A shooting in Worcester, an official update on cash-in-transit arrests, a school killing in Mhluzi, and arrests at Van Rooyen’s Gate were added from official and media sources. No headline quarterly figure changed.",
       "items": [
+        {
+          "id": "2026-11-21-van-rooyens-gate",
+          "kind": "official",
+          "title": "Arrests at Van Rooyen’s Gate",
+          "place": "Van Rooyen’s Gate, Free State",
+          "summary": "Official and media reports said 11 people were arrested in connection with the alleged illegal movement of Lesotho nationals through Van Rooyen’s Gate: five SAPS members, three Border Management Authority officials, and three Lesotho nationals. The charges are Alleged. The people arrested are not named here.",
+          "label": "Alleged",
+          "handles": [],
+          "sources": [
+            {
+              "title": "SAnews",
+              "url": "https://www.sanews.gov.za/south-africa/authorities-arrest-11-facilitating-illegal-movement-lesotho-nationals"
+            },
+            {
+              "title": "TimesLIVE",
+              "url": "https://www.timeslive.co.za/news/south-africa/2026-11-20-eight-bma-and-saps-members-arrested-for-alleged-lesotho-border-fraud/"
+            }
+          ]
+        },
         {
           "id": "2026-11-21-worcester",
           "kind": "news",
